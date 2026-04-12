@@ -157,3 +157,44 @@ Shape B:
   "message": "Unauthorized"
 }
 ```
+
+## Provider abstraction
+
+Board-studio routes all generation calls through a `GenerationProvider` interface
+defined in `src/lib/provider.ts`. The interface supports:
+
+- `generateImage` / `generateVideo`
+- `uploadMedia` (optional capability)
+- `poll` / `waitForCompletion`
+
+Atlas Cloud is the only registered provider (`id: "atlas-cloud"`). The concrete
+implementation lives in `src/lib/providers/atlasCloudProvider.ts` and wraps the
+low-level HTTP client in `src/lib/atlascloud.ts`.
+
+### Capability declarations
+
+Each provider declares a `ProviderCapabilities` object. Atlas Cloud current values:
+
+- `imageGeneration`: true
+- `videoGeneration`: true
+- `uploadMedia`: true
+- `trueMultiImageConditioning`: false  (BLOCKED — see Multi-image blocker section)
+- `referenceAssistedGeneration`: true  (bridge: reference names appended to prompt)
+- `aspectRatioControl`: true
+- `numOutputsControl`: true
+- `durationControl`: true
+- `seedControl`: false
+
+### Model capability profiles
+
+Each model is described by a `ModelCapabilityProfile`. Current profiles:
+
+- `google/nano-banana/text-to-image`: image, aspectRatio, numOutputs, promptAugmentation
+- `bytedance/seedance-2.0-fast/image-to-video`: video, durationControl, singleImageReference
+
+### Adding a new provider
+
+1. Create `src/lib/providers/<providerName>Provider.ts`.
+2. Implement the `GenerationProvider` interface.
+3. Call `registerProvider(provider)` and `registerModelProfile(...)` at module level.
+4. Import the file for its side-effect in `src/lib/api.ts`.

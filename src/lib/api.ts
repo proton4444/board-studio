@@ -1,15 +1,14 @@
 import {
   ATLASCLOUD_IMAGE_MODEL,
   ATLASCLOUD_VIDEO_MODEL,
-  generateImage,
-  generateVideo,
-  pollPrediction,
   type PredictionResult,
 } from "./atlascloud";
+import { getProvider, type ProviderPollResult } from "./provider";
 import { loadGeneration } from "./storage";
 import { createId, nowIso } from "./utils";
 import type { Card } from "../schemas/board";
 import type { GenerationRecord, GenerationStatus, MediaItem } from "../schemas/media";
+import "./providers/atlasCloudProvider";
 
 const ATLAS_PROVIDER = "atlas-cloud";
 
@@ -37,6 +36,8 @@ type VideoGenerationParams = BaseGenerationParams & {
 };
 
 export type GenerationRequestParams = ImageGenerationParams | VideoGenerationParams;
+
+export { ATLASCLOUD_IMAGE_MODEL, ATLASCLOUD_VIDEO_MODEL } from "./atlascloud";
 
 type BuildImageGenOptions = Omit<
   ImageGenerationParams,
@@ -146,11 +147,12 @@ export function buildImageGenParams(
 export async function requestGeneration(
   params: GenerationRequestParams,
 ): Promise<GenerationRecord> {
-  const provider = params.provider ?? ATLAS_PROVIDER;
+  const providerId = params.provider ?? ATLAS_PROVIDER;
+  const provider = getProvider(providerId);
 
   if (params.type === "image") {
-    const prediction = await generateImage({
-      model: params.model as typeof ATLASCLOUD_IMAGE_MODEL,
+    const prediction = await provider.generateImage({
+      model: params.model,
       prompt: params.prompt,
       aspect_ratio: params.aspect_ratio,
       num_outputs: params.num_outputs,
@@ -162,7 +164,7 @@ export async function requestGeneration(
         cardId: params.cardId,
         prompt: params.prompt,
         model: params.model,
-        provider,
+        provider: providerId,
         mediaType: "image",
         referenceGroupId: params.referenceGroupId,
         referenceImageIds: params.referenceImageIds,
@@ -171,8 +173,8 @@ export async function requestGeneration(
     );
   }
 
-  const prediction = await generateVideo({
-    model: params.model as typeof ATLASCLOUD_VIDEO_MODEL,
+  const prediction = await provider.generateVideo({
+    model: params.model,
     image_url: params.imageUrl,
     prompt: params.prompt,
     duration: params.duration,
@@ -184,7 +186,7 @@ export async function requestGeneration(
       cardId: params.cardId,
       prompt: params.prompt,
       model: params.model,
-      provider,
+      provider: providerId,
       mediaType: "video",
       referenceGroupId: params.referenceGroupId,
       referenceImageIds: params.referenceImageIds,
@@ -200,6 +202,21 @@ export async function pollGenerationStatus(id: string): Promise<GenerationRecord
     throw new Error(`No saved generation record found for ${id}.`);
   }
 
-  const prediction = await pollPrediction(id);
+  const provider = getProvider(existingRecord.provider ?? ATLAS_PROVIDER);
+  const prediction = await provider.poll(id);
   return mergePredictionIntoGenerationRecord(getStoredContext(existingRecord), prediction);
+}
+
+export async function waitForGeneration(
+  id: string,
+  opts?: { intervalMs?: number; maxWaitMs?: number },
+): Promise<ProviderPollResult> {
+  const existingRecord = loadGeneration(id);
+
+  if (!existingRecord) {
+    throw new Error(`No saved generation record found for ${id}.`);
+  }
+
+  const provider = getProvider(existingRecord.provider ?? ATLAS_PROVIDER);
+  return provider.waitForCompletion(id, opts);
 }

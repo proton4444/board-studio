@@ -11,16 +11,12 @@ import ReferenceUploadPanel from "../components/ReferenceUploadPanel";
 import Sidebar from "../components/Sidebar";
 import {
   buildImageGenParams,
-  mergePredictionIntoGenerationRecord,
-  pollGenerationStatus,
-  requestGeneration,
-} from "../lib/api";
-import {
   ATLASCLOUD_IMAGE_MODEL,
   ATLASCLOUD_VIDEO_MODEL,
-  generateVideo,
-  waitForCompletion,
-} from "../lib/atlascloud";
+  pollGenerationStatus,
+  requestGeneration,
+  waitForGeneration,
+} from "../lib/api";
 import {
   appendReferenceNamesToPrompt,
   getOrderedGroupReferenceImages,
@@ -298,7 +294,7 @@ function BoardEditor() {
     });
 
     try {
-      await waitForCompletion(initialRecord.id);
+      await waitForGeneration(initialRecord.id);
       const finalRecord = await pollGenerationStatus(initialRecord.id);
       saveAndSelectRecord(finalRecord);
       return finalRecord;
@@ -478,23 +474,16 @@ function BoardEditor() {
     setErrorMessage(null);
 
     try {
-      const prediction = await generateVideo({
-        model: ATLASCLOUD_VIDEO_MODEL,
-        image_url: referenceImageUrl,
+      const initialRecord = await requestGeneration({
+        type: "video",
+        boardId: board.id,
+        cardId: sourceRecord.cardId,
         prompt: sourceRecord.prompt,
+        model: ATLASCLOUD_VIDEO_MODEL,
+        provider: ATLAS_PROVIDER,
+        imageUrl: referenceImageUrl,
         duration,
       });
-      const initialRecord = mergePredictionIntoGenerationRecord(
-        {
-          boardId: board.id,
-          cardId: sourceRecord.cardId,
-          prompt: sourceRecord.prompt,
-          model: ATLASCLOUD_VIDEO_MODEL,
-          provider: ATLAS_PROVIDER,
-          mediaType: "video",
-        },
-        prediction,
-      );
       const finalRecord = await resolveGenerationLifecycle(initialRecord);
 
       if (finalRecord.status === "succeeded") {
