@@ -2,15 +2,15 @@
 
 ## VALIDATED
 
-- Project scaffold exists with React, Vite, an Express-ready API client utility, Zod schemas, and Vitest test files.
-- `Board` and `GenerationRecord` schemas are defined with fixture-backed test coverage in the repository.
-- Local board persistence is implemented through `saveBoard`, `loadBoard`, `listBoards`, `deleteBoard`, `exportBoards`, and `importBoards`.
-- The app includes a dashboard, board editor, draggable canvas cards, prompt composer, media output panel, and generation history tray in the frontend scaffold.
+- Atlas Cloud image generation is wired to `google/nano-banana/text-to-image`.
+- Atlas Cloud video generation is wired to `bytedance/seedance-2.0-fast/image-to-video`.
+- Atlas Cloud responses are normalized across direct and `{ "data": { ... } }` envelope shapes.
+- Local persistence stores image and video generation results per board in local storage.
+- The board editor supports the end-to-end flow: prompt -> image -> video -> history.
+- Atlas client normalization, error handling, and polling behavior are covered by automated tests.
 
-## PLANNED / NOT YET IMPLEMENTED
+## PLANNED / BLOCKED
 
-- `npm install`, `npm run build`, and `npm test` could not be completed in this environment because npm registry access failed with `ENOTFOUND` for `registry.npmjs.org`.
-- A real generation backend is not included; `src/lib/api.ts` targets a configurable endpoint and depends on an external API being available.
-- End-to-end generation success in the browser depends on the external `/generate` and `/generate/:id` endpoints returning the documented schema.
-- JSON export and import are implemented in the storage layer but do not yet have dedicated UI controls in the dashboard.
-- No cloud sync, user accounts, collaboration, or authentication are included in this MVP.
+- Live smoke validation against Atlas Cloud still requires a real `VITE_ATLASCLOUD_API_KEY`.
+- `uploadMedia` is implemented for Atlas Cloud but is not yet exposed in the current MVP UI because the main flow uses generated remote image URLs directly.
+- No multi-user sync, authentication, or server-side persistence is included in this MVP.

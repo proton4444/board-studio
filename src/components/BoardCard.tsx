@@ -1,9 +1,16 @@
 import { useState, type PointerEvent } from "react";
+import type { GenerationStatus } from "../schemas/media";
 import type { Card } from "../schemas/board";
+
+type CardGenerationState = {
+  status: GenerationStatus;
+  errorMessage?: string;
+};
 
 type BoardCardProps = {
   card: Card;
   selected: boolean;
+  generationState?: CardGenerationState;
   onSelect: (cardId: string) => void;
   onMove: (cardId: string, position: Card["position"]) => void;
   onChangeContent: (cardId: string, content: string) => void;
@@ -26,6 +33,7 @@ const labelMap: Record<Card["type"], string> = {
 function BoardCard({
   card,
   selected,
+  generationState,
   onSelect,
   onMove,
   onChangeContent,
@@ -85,7 +93,14 @@ function BoardCard({
     >
       <header className="board-card__header">
         <span className="board-card__eyebrow">{labelMap[card.type]}</span>
-        <span className="board-card__meta">{card.size.w} x {card.size.h}</span>
+        <div className="board-card__status">
+          {generationState ? (
+            <span className={`status-pill status-pill--${generationState.status}`}>
+              {generationState.status}
+            </span>
+          ) : null}
+          <span className="board-card__meta">{card.size.w} x {card.size.h}</span>
+        </div>
       </header>
       {card.type === "output" ? (
         <div className="board-card__output">
@@ -99,6 +114,9 @@ function BoardCard({
           placeholder={card.type === "prompt" ? "Describe the result you want to generate..." : "Capture a note, direction, or constraint..."}
         />
       )}
+      {generationState?.errorMessage ? (
+        <p className="board-card__error">{generationState.errorMessage}</p>
+      ) : null}
     </article>
   );
 }

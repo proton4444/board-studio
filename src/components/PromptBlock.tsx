@@ -5,12 +5,11 @@ type PromptBlockProps = {
   onPromptChange: (value: string) => void;
   model: string;
   provider: string;
-  onModelChange: (value: string) => void;
-  onProviderChange: (value: string) => void;
   onSubmit: () => void;
   onCreatePromptCard: () => void;
   hasPromptCard: boolean;
   status: GenerationStatus | "idle";
+  isSubmitting: boolean;
   errorMessage: string | null;
 };
 
@@ -19,19 +18,19 @@ function PromptBlock({
   onPromptChange,
   model,
   provider,
-  onModelChange,
-  onProviderChange,
   onSubmit,
   onCreatePromptCard,
   hasPromptCard,
   status,
+  isSubmitting,
   errorMessage,
 }: PromptBlockProps) {
   const canSubmit =
     hasPromptCard &&
     promptValue.trim().length > 0 &&
     status !== "pending" &&
-    status !== "running";
+    status !== "processing" &&
+    !isSubmitting;
 
   return (
     <section className="panel prompt-block">
@@ -62,11 +61,11 @@ function PromptBlock({
           <div className="prompt-block__grid">
             <label className="field">
               <span>Model</span>
-              <input value={model} onChange={(event) => onModelChange(event.target.value)} />
+              <input readOnly value={model} />
             </label>
             <label className="field">
               <span>Provider</span>
-              <input value={provider} onChange={(event) => onProviderChange(event.target.value)} />
+              <input readOnly value={provider} />
             </label>
           </div>
           <button
@@ -75,7 +74,7 @@ function PromptBlock({
             onClick={onSubmit}
             type="button"
           >
-            Submit generation
+            {isSubmitting ? "Generating..." : "Generate"}
           </button>
           {errorMessage ? <p className="panel__error">{errorMessage}</p> : null}
         </>

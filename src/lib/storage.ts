@@ -90,6 +90,10 @@ export function saveGeneration(record: GenerationRecord): void {
   getStorage().setItem(`${GENERATION_PREFIX}${safeRecord.id}`, JSON.stringify(safeRecord));
 }
 
+export function loadGeneration(id: string): GenerationRecord | null {
+  return readValidatedRecord(`${GENERATION_PREFIX}${id}`, generationRecordSchema);
+}
+
 export function listGenerationsByBoard(boardId: string): GenerationRecord[] {
   return collectByPrefix(GENERATION_PREFIX, generationRecordSchema)
     .filter((record) => record.boardId === boardId)

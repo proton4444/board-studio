@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const timestampSchema = z.string().datetime();
 
-export const generationStatusSchema = z.enum(["pending", "running", "done", "error"]);
+export const generationStatusSchema = z.enum(["pending", "processing", "succeeded", "failed"]);
 export const mediaKindSchema = z.enum(["image", "video", "text"]);
 
 export const mediaItemSchema = z.object({
@@ -24,6 +24,7 @@ export const generationRecordSchema = z.object({
   status: generationStatusSchema,
   createdAt: timestampSchema,
   completedAt: timestampSchema.optional(),
+  error: z.string().min(1).optional(),
   output: z.array(mediaItemSchema).optional(),
 });
 

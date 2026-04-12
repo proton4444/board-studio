@@ -1,17 +1,37 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import BoardCanvas from "../components/BoardCanvas";
 import HistoryTray from "../components/HistoryTray";
 import MediaOutputPanel from "../components/MediaOutputPanel";
 import PromptBlock from "../components/PromptBlock";
 import Sidebar from "../components/Sidebar";
-import { pollGenerationStatus, requestGeneration } from "../lib/api";
+import { mergePredictionIntoGenerationRecord, pollGenerationStatus, requestGeneration } from "../lib/api";
+import {
+  ATLASCLOUD_IMAGE_MODEL,
+  ATLASCLOUD_VIDEO_MODEL,
+  generateVideo,
+  waitForCompletion,
+} from "../lib/atlascloud";
 import { listBoards, listGenerationsByBoard, loadBoard, saveBoard, saveGeneration } from "../lib/storage";
 import { createId, nowIso } from "../lib/utils";
 import type { Board, Card, CardType } from "../schemas/board";
 import type { GenerationRecord, GenerationStatus, MediaItem } from "../schemas/media";
 
 type ComposerStatus = GenerationStatus | "idle";
+
+type ActiveGeneration = {
+  recordId: string;
+  cardId: string;
+  status: GenerationStatus;
+  errorMessage?: string;
+} | null;
+
+type CardGenerationState = {
+  status: GenerationStatus;
+  errorMessage?: string;
+};
+
+const ATLAS_PROVIDER = "atlas-cloud";
 
 const cardDefaults: Record<CardType, Pick<Card, "content" | "size">> = {
   prompt: {
@@ -58,6 +78,40 @@ function summariseMediaItem(item: MediaItem | undefined): string {
   return `${item.type.toUpperCase()} output ready.`;
 }
 
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
+function buildCardGenerationStateById(
+  records: GenerationRecord[],
+  activeGeneration: ActiveGeneration,
+): Record<string, CardGenerationState> {
+  const nextState: Record<string, CardGenerationState> = {};
+
+  records.forEach((record) => {
+    if (!nextState[record.cardId]) {
+      nextState[record.cardId] = {
+        status: record.status,
+        errorMessage: record.error,
+      };
+    }
+  });
+
+  if (activeGeneration) {
+    nextState[activeGeneration.cardId] = {
+      status: activeGeneration.status,
+      errorMessage:
+        activeGeneration.errorMessage ?? nextState[activeGeneration.cardId]?.errorMessage,
+    };
+  }
+
+  return nextState;
+}
+
 function BoardEditor() {
   const { boardId } = useParams();
   const [board, setBoard] = useState<Board | null>(null);
@@ -65,11 +119,9 @@ function BoardEditor() {
   const [records, setRecords] = useState<GenerationRecord[]>([]);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null);
-  const [model, setModel] = useState("studio-vision-1");
-  const [provider, setProvider] = useState("local-proxy");
-  const [composerStatus, setComposerStatus] = useState<ComposerStatus>("idle");
+  const [activeGeneration, setActiveGeneration] = useState<ActiveGeneration>(null);
+  const [busyAction, setBusyAction] = useState<"image" | "video" | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const pollTimerRef = useRef<number | null>(null);
 
   function refreshBoards() {
     setBoards(listBoards().map(({ id, name }) => ({ id, name })));
@@ -87,13 +139,6 @@ function BoardEditor() {
     setSelectedGenerationId(nextSelectedId ?? nextRecords[0]?.id ?? null);
   }
 
-  function clearPollTimer() {
-    if (pollTimerRef.current !== null) {
-      window.clearTimeout(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-  }
-
   function updateBoard(update: (current: Board) => Board) {
     setBoard((current) => {
       if (!current) {
@@ -105,6 +150,12 @@ function BoardEditor() {
         updatedAt: nowIso(),
       };
     });
+  }
+
+  function saveAndSelectRecord(record: GenerationRecord) {
+    saveGeneration(record);
+    refreshGenerations(record.id);
+    setSelectedGenerationId(record.id);
   }
 
   function applyGenerationToBoard(record: GenerationRecord) {
@@ -146,34 +197,60 @@ function BoardEditor() {
     });
   }
 
-  async function pollRecord(recordId: string) {
+  function buildFailedRecord(record: GenerationRecord, message: string): GenerationRecord {
+    return {
+      ...record,
+      status: "failed",
+      completedAt: nowIso(),
+      error: message,
+    };
+  }
+
+  async function resolveGenerationLifecycle(initialRecord: GenerationRecord): Promise<GenerationRecord> {
+    saveAndSelectRecord(initialRecord);
+    setActiveGeneration({
+      recordId: initialRecord.id,
+      cardId: initialRecord.cardId,
+      status: initialRecord.status,
+      errorMessage: initialRecord.error,
+    });
+
+    if (initialRecord.status === "succeeded" || initialRecord.status === "failed") {
+      setActiveGeneration(null);
+      return initialRecord;
+    }
+
+    setActiveGeneration({
+      recordId: initialRecord.id,
+      cardId: initialRecord.cardId,
+      status: "processing",
+    });
+
     try {
-      const nextRecord = await pollGenerationStatus(recordId);
-      saveGeneration(nextRecord);
-      refreshGenerations(nextRecord.id);
-      setComposerStatus(nextRecord.status);
-
-      if (nextRecord.status === "pending" || nextRecord.status === "running") {
-        pollTimerRef.current = window.setTimeout(() => {
-          void pollRecord(recordId);
-        }, 1600);
-        return;
-      }
-
-      if (nextRecord.status === "done") {
-        applyGenerationToBoard(nextRecord);
-        return;
-      }
-
-      setErrorMessage("Generation ended with an error state.");
+      await waitForCompletion(initialRecord.id);
+      const finalRecord = await pollGenerationStatus(initialRecord.id);
+      saveAndSelectRecord(finalRecord);
+      return finalRecord;
     } catch (error) {
-      setComposerStatus("error");
-      setErrorMessage(error instanceof Error ? error.message : "Polling failed.");
+      const message = extractErrorMessage(error, "Generation failed.");
+      const polledRecord = await pollGenerationStatus(initialRecord.id).catch(() => null);
+      const failedRecord =
+        polledRecord?.status === "failed"
+          ? {
+              ...polledRecord,
+              error: polledRecord.error ?? message,
+            }
+          : buildFailedRecord(initialRecord, message);
+
+      saveAndSelectRecord(failedRecord);
+      return failedRecord;
+    } finally {
+      setActiveGeneration(null);
     }
   }
 
   async function handleSubmitGeneration() {
-    if (!board) {
+    if (!board || busyAction) {
       return;
     }
 
@@ -186,75 +263,70 @@ function BoardEditor() {
       return;
     }
 
-    clearPollTimer();
+    setBusyAction("image");
     setErrorMessage(null);
-    setComposerStatus("pending");
-
-    const optimisticRecord: GenerationRecord = {
-      id: createId("generation"),
-      boardId: board.id,
-      cardId: promptCard.id,
-      prompt: promptCard.content.trim(),
-      model,
-      provider,
-      status: "pending",
-      createdAt: nowIso(),
-    };
-
-    saveGeneration(optimisticRecord);
-    refreshGenerations(optimisticRecord.id);
 
     try {
-      const response = await requestGeneration({
-        prompt: optimisticRecord.prompt,
-        model,
-        provider,
+      const initialRecord = await requestGeneration({
+        type: "image",
+        prompt: promptCard.content.trim(),
+        model: ATLASCLOUD_IMAGE_MODEL,
         boardId: board.id,
         cardId: promptCard.id,
       });
-      const mergedRecord: GenerationRecord = {
-        ...optimisticRecord,
-        ...response,
-      };
+      const finalRecord = await resolveGenerationLifecycle(initialRecord);
 
-      saveGeneration(mergedRecord);
-      refreshGenerations(mergedRecord.id);
-      setComposerStatus(mergedRecord.status);
-
-      if (mergedRecord.status === "pending" || mergedRecord.status === "running") {
-        pollTimerRef.current = window.setTimeout(() => {
-          void pollRecord(mergedRecord.id);
-        }, 1000);
+      if (finalRecord.status === "succeeded") {
+        applyGenerationToBoard(finalRecord);
         return;
       }
 
-      if (mergedRecord.status === "done") {
-        applyGenerationToBoard(mergedRecord);
-        return;
-      }
-
-      setErrorMessage("Generation finished with an error response.");
+      setErrorMessage(finalRecord.error ?? "Image generation failed.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Generation request failed.";
-      const failedRecord: GenerationRecord = {
-        ...optimisticRecord,
-        status: "error",
-        completedAt: nowIso(),
-        output: [
-          {
-            id: createId("media"),
-            type: "text",
-            content: message,
-            mimeType: "text/plain",
-            meta: { source: "request-error" },
-          },
-        ],
-      };
+      setErrorMessage(extractErrorMessage(error, "Image generation request failed."));
+    } finally {
+      setBusyAction(null);
+    }
+  }
 
-      saveGeneration(failedRecord);
-      refreshGenerations(failedRecord.id);
-      setComposerStatus("error");
-      setErrorMessage(message);
+  async function handleMakeVideo(sourceRecord: GenerationRecord, imageUrl: string) {
+    if (!board || busyAction) {
+      return;
+    }
+
+    setBusyAction("video");
+    setErrorMessage(null);
+
+    try {
+      const prediction = await generateVideo({
+        model: ATLASCLOUD_VIDEO_MODEL,
+        image_url: imageUrl,
+        prompt: sourceRecord.prompt,
+        duration: 5,
+      });
+      const initialRecord = mergePredictionIntoGenerationRecord(
+        {
+          boardId: board.id,
+          cardId: sourceRecord.cardId,
+          prompt: sourceRecord.prompt,
+          model: ATLASCLOUD_VIDEO_MODEL,
+          provider: ATLAS_PROVIDER,
+          mediaType: "video",
+        },
+        prediction,
+      );
+      const finalRecord = await resolveGenerationLifecycle(initialRecord);
+
+      if (finalRecord.status === "succeeded") {
+        applyGenerationToBoard(finalRecord);
+        return;
+      }
+
+      setErrorMessage(finalRecord.error ?? "Video generation failed.");
+    } catch (error) {
+      setErrorMessage(extractErrorMessage(error, "Video generation request failed."));
+    } finally {
+      setBusyAction(null);
     }
   }
 
@@ -270,14 +342,14 @@ function BoardEditor() {
   }
 
   useEffect(() => {
-    clearPollTimer();
-
     if (!boardId) {
       setBoard(null);
       setBoards([]);
       setRecords([]);
       setSelectedCardId(null);
       setSelectedGenerationId(null);
+      setActiveGeneration(null);
+      setBusyAction(null);
       return;
     }
 
@@ -290,7 +362,8 @@ function BoardEditor() {
         loadedBoard?.cards[0]?.id ??
         null,
     );
-    setComposerStatus("idle");
+    setActiveGeneration(null);
+    setBusyAction(null);
     setErrorMessage(null);
   }, [boardId]);
 
@@ -302,12 +375,6 @@ function BoardEditor() {
     saveBoard(board);
     refreshBoards();
   }, [board]);
-
-  useEffect(() => {
-    return () => {
-      clearPollTimer();
-    };
-  }, []);
 
   if (!boardId || !board) {
     return (
@@ -324,10 +391,22 @@ function BoardEditor() {
 
   const selectedGeneration =
     records.find((record) => record.id === selectedGenerationId) ?? records[0] ?? null;
+  const displayedGeneration =
+    selectedGeneration && activeGeneration?.recordId === selectedGeneration.id
+      ? {
+          ...selectedGeneration,
+          status: activeGeneration.status,
+          error: activeGeneration.errorMessage ?? selectedGeneration.error,
+        }
+      : selectedGeneration;
   const promptCard =
     board.cards.find((card) => card.id === selectedCardId && card.type === "prompt") ??
     board.cards.find((card) => card.type === "prompt") ??
     null;
+  const cardGenerationStateById = buildCardGenerationStateById(records, activeGeneration);
+  const promptCardState = promptCard ? cardGenerationStateById[promptCard.id] : undefined;
+  const composerStatus: ComposerStatus = promptCardState?.status ?? "idle";
+  const promptErrorMessage = promptCardState?.errorMessage ?? errorMessage;
 
   return (
     <section className="board-editor">
@@ -358,6 +437,7 @@ function BoardEditor() {
         <BoardCanvas
           cards={board.cards}
           selectedCardId={selectedCardId}
+          generationStateByCardId={cardGenerationStateById}
           onSelectCard={setSelectedCardId}
           onMoveCard={(cardId, position) =>
             updateBoard((current) => ({
@@ -392,19 +472,25 @@ function BoardEditor() {
                 ),
               }));
             }}
-            model={model}
-            provider={provider}
-            onModelChange={setModel}
-            onProviderChange={setProvider}
+            model={ATLASCLOUD_IMAGE_MODEL}
+            provider={ATLAS_PROVIDER}
             onSubmit={() => void handleSubmitGeneration()}
             onCreatePromptCard={() => {
               handleAddCard("prompt");
             }}
             hasPromptCard={Boolean(promptCard)}
-            status={selectedGeneration?.status ?? composerStatus}
-            errorMessage={errorMessage}
+            status={composerStatus}
+            isSubmitting={busyAction === "image"}
+            errorMessage={promptErrorMessage}
           />
-          <MediaOutputPanel record={selectedGeneration} />
+          <MediaOutputPanel
+            record={displayedGeneration}
+            isCreatingVideo={busyAction === "video"}
+            panelErrorMessage={displayedGeneration?.error ?? errorMessage}
+            onMakeVideo={(record, imageUrl) => {
+              void handleMakeVideo(record, imageUrl);
+            }}
+          />
           <HistoryTray
             records={records}
             selectedGenerationId={selectedGenerationId}

@@ -3,9 +3,24 @@ import type { GenerationRecord } from "../schemas/media";
 
 type MediaOutputPanelProps = {
   record: GenerationRecord | null;
+  isCreatingVideo: boolean;
+  panelErrorMessage: string | null;
+  onMakeVideo: (record: GenerationRecord, imageUrl: string) => void;
 };
 
-function MediaOutputPanel({ record }: MediaOutputPanelProps) {
+function MediaOutputPanel({
+  record,
+  isCreatingVideo,
+  panelErrorMessage,
+  onMakeVideo,
+}: MediaOutputPanelProps) {
+  const imageOutput = record?.output?.find((item) => item.type === "image" && item.url);
+  const canMakeVideo =
+    Boolean(record) &&
+    record?.status === "succeeded" &&
+    imageOutput?.url &&
+    record.model === "google/nano-banana/text-to-image";
+
   return (
     <section className="panel media-output-panel">
       <div className="panel__heading">
@@ -13,7 +28,21 @@ function MediaOutputPanel({ record }: MediaOutputPanelProps) {
           <p className="panel__eyebrow">Output viewer</p>
           <h2>Latest result</h2>
         </div>
-        {record ? <span className={`status-pill status-pill--${record.status}`}>{record.status}</span> : null}
+        <div className="media-output-panel__actions">
+          {canMakeVideo && imageOutput?.url ? (
+            <button
+              className="button button--ghost"
+              disabled={isCreatingVideo}
+              onClick={() => onMakeVideo(record, imageOutput.url!)}
+              type="button"
+            >
+              {isCreatingVideo ? "Making video..." : "Make Video"}
+            </button>
+          ) : null}
+          {record ? (
+            <span className={`status-pill status-pill--${record.status}`}>{record.status}</span>
+          ) : null}
+        </div>
       </div>
       {!record ? (
         <div className="panel__empty">
@@ -27,6 +56,7 @@ function MediaOutputPanel({ record }: MediaOutputPanelProps) {
             <span>{formatShortDate(record.createdAt)}</span>
           </div>
           <p className="media-output-panel__prompt">{record.prompt}</p>
+          {panelErrorMessage ? <p className="panel__error">{panelErrorMessage}</p> : null}
           <div className="media-output-panel__items">
             {record.output?.length ? (
               record.output.map((item) => (

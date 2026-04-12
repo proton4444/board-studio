@@ -1,9 +1,16 @@
 import BoardCard from "./BoardCard";
+import type { GenerationStatus } from "../schemas/media";
 import type { Card } from "../schemas/board";
+
+type CardGenerationState = {
+  status: GenerationStatus;
+  errorMessage?: string;
+};
 
 type BoardCanvasProps = {
   cards: Card[];
   selectedCardId: string | null;
+  generationStateByCardId: Record<string, CardGenerationState>;
   onSelectCard: (cardId: string) => void;
   onMoveCard: (cardId: string, position: Card["position"]) => void;
   onChangeCardContent: (cardId: string, content: string) => void;
@@ -12,6 +19,7 @@ type BoardCanvasProps = {
 function BoardCanvas({
   cards,
   selectedCardId,
+  generationStateByCardId,
   onSelectCard,
   onMoveCard,
   onChangeCardContent,
@@ -29,6 +37,7 @@ function BoardCanvas({
             key={card.id}
             card={card}
             selected={selectedCardId === card.id}
+            generationState={generationStateByCardId[card.id]}
             onSelect={onSelectCard}
             onMove={onMoveCard}
             onChangeContent={onChangeCardContent}

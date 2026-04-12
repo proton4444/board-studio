@@ -5,9 +5,9 @@ const mediaFixture: GenerationRecord = {
   boardId: "board_fixture",
   cardId: "card_prompt_fixture",
   prompt: "Generate a soft-lit still life with layered paper textures.",
-  model: "studio-vision-1",
-  provider: "local-proxy",
-  status: "done",
+  model: "google/nano-banana/text-to-image",
+  provider: "atlas-cloud",
+  status: "succeeded",
   createdAt: "2026-04-12T10:10:00.000Z",
   completedAt: "2026-04-12T10:10:08.000Z",
   output: [

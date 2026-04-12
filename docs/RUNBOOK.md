@@ -10,15 +10,25 @@
 
 - Run `npm test`
 
+## Running with Atlas Cloud
+
+1. Copy `.env.example` to `.env.local`
+2. Set `VITE_ATLASCLOUD_API_KEY=<your key>`
+3. Run `npm run dev`
+4. Open a board, type a prompt, and click `Generate`
+5. Wait for the image result, typically `~10-45s`
+6. Click `Make Video` on the generated image
+7. Wait for the video result, typically `~60-120s`
+
 ## Required env vars
 
-- `VITE_API_BASE_URL`
-  Defaults to `http://localhost:8080`
-- `VITE_API_KEY`
-  Optional API key sent as `x-api-key`
+- `VITE_ATLASCLOUD_BASE_URL`
+  Defaults to `https://api.atlascloud.ai/api/v1`
+- `VITE_ATLASCLOUD_API_KEY`
+  Required. Sent as `Authorization: Bearer <ATLASCLOUD_API_KEY>`
 
-## Configure the API endpoint
+## Atlas client locations
 
-- Set `VITE_API_BASE_URL` in your shell or a local `.env` file before starting Vite
-- The frontend calls `POST /generate` and `GET /generate/:id`
-- The API client is in `src/lib/api.ts`
+- Atlas Cloud client: `src/lib/atlascloud.ts`
+- App-level API translation: `src/lib/api.ts`
+- Provider contract reference: `docs/API-CONTRACT.md`

@@ -411,6 +411,12 @@ a {
   gap: 0.75rem;
 }
 
+.board-card__status {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
 .board-card__eyebrow,
 .board-card__meta {
   font-size: 0.75rem;
@@ -439,6 +445,12 @@ a {
   white-space: pre-wrap;
 }
 
+.board-card__error {
+  margin: 0;
+  color: #ffb7b2;
+  font-size: 0.82rem;
+}
+
 .board-editor__panels {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -464,19 +476,25 @@ a {
   color: #f8e8b8;
 }
 
-.status-pill--running {
+.status-pill--processing {
   background: rgba(121, 212, 200, 0.12);
   color: var(--mint);
 }
 
-.status-pill--done {
+.status-pill--succeeded {
   background: rgba(115, 220, 163, 0.12);
   color: #73dca3;
 }
 
-.status-pill--error {
+.status-pill--failed {
   background: rgba(255, 133, 123, 0.12);
   color: #ff857b;
+}
+
+.media-output-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 
 .prompt-block__empty {
