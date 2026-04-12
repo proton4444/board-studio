@@ -1,16 +1,20 @@
 import {
   deleteReferenceImage,
+  deleteImageGroup,
   exportBoards,
   importBoards,
   listBoards,
+  loadImageGroups,
   loadReferenceImages,
   loadBoard,
   saveBoard,
+  saveImageGroup,
   saveReferenceImage,
+  updateImageGroup,
   deleteBoard,
 } from "../src/lib/storage";
 import type { Board } from "../src/schemas/board";
-import type { ReferenceImage } from "../src/schemas/media";
+import type { ImageGroup, ReferenceImage } from "../src/schemas/media";
 import { LocalStorageMock } from "./localStorageMock";
 
 const firstBoard: Board = {
@@ -43,6 +47,15 @@ const referenceImageFixture: ReferenceImage = {
     source: "upload",
     storage: "data-url",
   },
+};
+
+const imageGroupFixture: ImageGroup = {
+  id: "image_group_fixture",
+  boardId: firstBoard.id,
+  name: "Hero set",
+  referenceImageIds: ["reference_fixture", "reference_fixture_second"],
+  createdAt: "2026-04-12T10:10:00.000Z",
+  updatedAt: "2026-04-12T10:15:00.000Z",
 };
 
 beforeEach(() => {
@@ -117,4 +130,64 @@ test("deleting a board also removes its reference images", () => {
   deleteBoard(firstBoard.id);
 
   expect(loadReferenceImages(firstBoard.id)).toEqual([]);
+});
+
+test("load image groups returns an empty array when the board has no groups", () => {
+  expect(loadImageGroups(firstBoard.id)).toEqual([]);
+});
+
+test("save, load, update, and delete image groups round-trip cleanly", () => {
+  const newerGroup: ImageGroup = {
+    ...imageGroupFixture,
+    id: "image_group_fixture_newer",
+    name: "Supporting cast",
+    referenceImageIds: ["reference_fixture"],
+    createdAt: "2026-04-12T10:20:00.000Z",
+    updatedAt: "2026-04-12T10:25:00.000Z",
+  };
+
+  saveImageGroup(imageGroupFixture);
+  saveImageGroup(newerGroup);
+
+  expect(loadImageGroups(firstBoard.id)).toEqual([newerGroup, imageGroupFixture]);
+
+  updateImageGroup(imageGroupFixture.id, {
+    name: "Hero lineup",
+    referenceImageIds: ["reference_fixture_second"],
+    updatedAt: "2026-04-12T10:30:00.000Z",
+  });
+
+  expect(loadImageGroups(firstBoard.id)).toEqual([
+    {
+      ...imageGroupFixture,
+      name: "Hero lineup",
+      referenceImageIds: ["reference_fixture_second"],
+      updatedAt: "2026-04-12T10:30:00.000Z",
+    },
+    newerGroup,
+  ]);
+
+  deleteImageGroup(imageGroupFixture.id);
+  deleteImageGroup(newerGroup.id);
+
+  expect(loadImageGroups(firstBoard.id)).toEqual([]);
+});
+
+test("update image group merges name and ordered reference image ids", () => {
+  saveImageGroup(imageGroupFixture);
+
+  updateImageGroup(imageGroupFixture.id, {
+    name: "Renamed group",
+    referenceImageIds: ["reference_fixture_second", "reference_fixture"],
+    updatedAt: "2026-04-12T10:35:00.000Z",
+  });
+
+  expect(loadImageGroups(firstBoard.id)).toEqual([
+    {
+      ...imageGroupFixture,
+      name: "Renamed group",
+      referenceImageIds: ["reference_fixture_second", "reference_fixture"],
+      updatedAt: "2026-04-12T10:35:00.000Z",
+    },
+  ]);
 });

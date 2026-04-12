@@ -32,6 +32,15 @@ export const referenceImageSchema = mediaItemSchema.extend({
   createdAt: timestampSchema,
 });
 
+export const imageGroupSchema = z.object({
+  id: z.string().min(1),
+  boardId: z.string().min(1),
+  name: z.string().min(1),
+  referenceImageIds: z.array(z.string().min(1)),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema,
+});
+
 export const generationRecordSchema = z.object({
   id: z.string().min(1),
   boardId: z.string().min(1),
@@ -53,3 +62,4 @@ export type GenerationStatus = z.infer<typeof generationStatusSchema>;
 export type MediaItem = z.infer<typeof mediaItemSchema>;
 export type GenerationRecord = z.infer<typeof generationRecordSchema>;
 export type ReferenceImage = z.infer<typeof referenceImageSchema>;
+export type ImageGroup = z.infer<typeof imageGroupSchema>;

@@ -518,6 +518,67 @@ a {
   margin-top: 0.9rem;
 }
 
+.image-group-panel,
+.image-group-form,
+.image-group-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.image-group-form__options {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.image-group-form__option {
+  display: grid;
+  grid-template-columns: auto 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(247, 238, 219, 0.04);
+}
+
+.image-group-form__option img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.image-group-card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.image-group-card__members {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.image-group-card__members li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--muted);
+}
+
+.image-group-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
 .reference-upload-item {
   display: flex;
   align-items: flex-start;

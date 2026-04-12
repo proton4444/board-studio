@@ -1,6 +1,8 @@
 import {
   generationRecordSchema,
+  imageGroupSchema,
   referenceImageSchema,
+  type ImageGroup,
   type GenerationRecord,
   type ReferenceImage,
 } from "../src/schemas/media";
@@ -58,4 +60,26 @@ const referenceFixture: ReferenceImage = {
 
 test("reference image schema accepts a valid uploaded reference fixture", () => {
   expect(referenceImageSchema.parse(referenceFixture)).toEqual(referenceFixture);
+});
+
+const imageGroupFixture: ImageGroup = {
+  id: "group_fixture",
+  boardId: "board_fixture",
+  name: "Character lineup",
+  referenceImageIds: ["reference_fixture", "reference_fixture_alt"],
+  createdAt: "2026-04-12T10:25:00.000Z",
+  updatedAt: "2026-04-12T10:26:00.000Z",
+};
+
+test("image group schema accepts a valid fixture", () => {
+  expect(imageGroupSchema.parse(imageGroupFixture)).toEqual(imageGroupFixture);
+});
+
+test("image group schema rejects an empty name", () => {
+  expect(() =>
+    imageGroupSchema.parse({
+      ...imageGroupFixture,
+      name: "",
+    }),
+  ).toThrow();
 });

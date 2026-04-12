@@ -3,7 +3,9 @@ import { boardCollectionSchema, boardSchema, type Board } from "../schemas/board
 import {
   generationCollectionSchema,
   generationRecordSchema,
+  imageGroupSchema,
   referenceImageSchema,
+  type ImageGroup,
   type ReferenceImage,
   type GenerationRecord,
 } from "../schemas/media";
@@ -11,6 +13,7 @@ import {
 const BOARD_PREFIX = "board:";
 const GENERATION_PREFIX = "generation:";
 const REFERENCE_IMAGE_PREFIX = "reference-image:";
+const IMAGE_GROUP_PREFIX = "image-group:";
 
 function getStorage(): Storage {
   if (!("localStorage" in globalThis)) {
@@ -78,6 +81,8 @@ export function deleteBoard(id: string): void {
   generations.forEach((record) => storage.removeItem(`${GENERATION_PREFIX}${record.id}`));
   const referenceImages = loadReferenceImages(id);
   referenceImages.forEach((image) => storage.removeItem(`${REFERENCE_IMAGE_PREFIX}${image.id}`));
+  const imageGroups = loadImageGroups(id);
+  imageGroups.forEach((group) => storage.removeItem(`${IMAGE_GROUP_PREFIX}${group.id}`));
 }
 
 export function exportBoards(): string {
@@ -128,4 +133,35 @@ export function loadReferenceImages(boardId: string): ReferenceImage[] {
 
 export function deleteReferenceImage(id: string): void {
   getStorage().removeItem(`${REFERENCE_IMAGE_PREFIX}${id}`);
+}
+
+export function saveImageGroup(group: ImageGroup): void {
+  const safeGroup = imageGroupSchema.parse(group);
+  getStorage().setItem(`${IMAGE_GROUP_PREFIX}${safeGroup.id}`, JSON.stringify(safeGroup));
+}
+
+export function loadImageGroups(boardId: string): ImageGroup[] {
+  return collectByPrefix(IMAGE_GROUP_PREFIX, imageGroupSchema)
+    .filter((group) => group.boardId === boardId)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
+export function updateImageGroup(
+  id: string,
+  patch: Partial<Pick<ImageGroup, "name" | "referenceImageIds" | "updatedAt">>,
+): void {
+  const existingGroup = readValidatedRecord(`${IMAGE_GROUP_PREFIX}${id}`, imageGroupSchema);
+
+  if (!existingGroup) {
+    return;
+  }
+
+  saveImageGroup({
+    ...existingGroup,
+    ...patch,
+  });
+}
+
+export function deleteImageGroup(id: string): void {
+  getStorage().removeItem(`${IMAGE_GROUP_PREFIX}${id}`);
 }

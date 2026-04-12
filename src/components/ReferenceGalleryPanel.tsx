@@ -13,9 +13,10 @@ type ReferenceGalleryPanelProps = {
   boardId: string;
   refreshKey?: number;
   items?: ReferenceImage[];
+  onChange?: () => void;
 };
 
-function ReferenceGalleryPanel({ boardId, refreshKey = 0, items }: ReferenceGalleryPanelProps) {
+function ReferenceGalleryPanel({ boardId, refreshKey = 0, items, onChange }: ReferenceGalleryPanelProps) {
   const [references, setReferences] = useState<ReferenceImage[]>(() => items ?? []);
 
   useEffect(() => {
@@ -31,6 +32,7 @@ function ReferenceGalleryPanel({ boardId, refreshKey = 0, items }: ReferenceGall
   function handleRemove(imageId: string) {
     deleteReferenceImage(imageId);
     setReferences(loadReferenceImages(boardId));
+    onChange?.();
   }
 
   return (

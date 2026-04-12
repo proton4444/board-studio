@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import BoardCanvas from "../components/BoardCanvas";
 import HistoryTray from "../components/HistoryTray";
+import ImageGroupPanel from "../components/ImageGroupPanel";
 import MediaOutputPanel from "../components/MediaOutputPanel";
 import PromptBlock from "../components/PromptBlock";
 import ReferenceGalleryPanel from "../components/ReferenceGalleryPanel";
@@ -14,10 +15,17 @@ import {
   generateVideo,
   waitForCompletion,
 } from "../lib/atlascloud";
-import { listBoards, listGenerationsByBoard, loadBoard, saveBoard, saveGeneration } from "../lib/storage";
+import {
+  listBoards,
+  listGenerationsByBoard,
+  loadBoard,
+  loadReferenceImages,
+  saveBoard,
+  saveGeneration,
+} from "../lib/storage";
 import { createId, nowIso } from "../lib/utils";
 import type { Board, Card, CardType } from "../schemas/board";
-import type { GenerationRecord, GenerationStatus, MediaItem } from "../schemas/media";
+import type { GenerationRecord, GenerationStatus, MediaItem, ReferenceImage } from "../schemas/media";
 
 type ComposerStatus = GenerationStatus | "idle";
 
@@ -124,7 +132,9 @@ function BoardEditor() {
   const [activeGeneration, setActiveGeneration] = useState<ActiveGeneration>(null);
   const [busyAction, setBusyAction] = useState<"image" | "video" | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [referenceGalleryRefreshKey, setReferenceGalleryRefreshKey] = useState(0);
+  const [groupRefreshKey, setGroupRefreshKey] = useState(0);
 
   function refreshBoards() {
     setBoards(listBoards().map(({ id, name }) => ({ id, name })));
@@ -142,6 +152,15 @@ function BoardEditor() {
     setSelectedGenerationId(nextSelectedId ?? nextRecords[0]?.id ?? null);
   }
 
+  function refreshReferenceImages(nextBoardId = boardId) {
+    if (!nextBoardId) {
+      setReferenceImages([]);
+      return;
+    }
+
+    setReferenceImages(loadReferenceImages(nextBoardId));
+  }
+
   function updateBoard(update: (current: Board) => Board) {
     setBoard((current) => {
       if (!current) {
@@ -156,7 +175,12 @@ function BoardEditor() {
   }
 
   function refreshReferenceGallery() {
+    refreshReferenceImages();
     setReferenceGalleryRefreshKey((current) => current + 1);
+  }
+
+  function refreshImageGroups() {
+    setGroupRefreshKey((current) => current + 1);
   }
 
   function saveAndSelectRecord(record: GenerationRecord) {
@@ -353,6 +377,7 @@ function BoardEditor() {
       setBoard(null);
       setBoards([]);
       setRecords([]);
+      setReferenceImages([]);
       setSelectedCardId(null);
       setSelectedGenerationId(null);
       setActiveGeneration(null);
@@ -369,6 +394,7 @@ function BoardEditor() {
         loadedBoard?.cards[0]?.id ??
         null,
     );
+    refreshReferenceImages(boardId);
     setActiveGeneration(null);
     setBusyAction(null);
     setErrorMessage(null);
@@ -506,7 +532,14 @@ function BoardEditor() {
             />
             <ReferenceGalleryPanel
               boardId={board.id}
+              onChange={refreshReferenceGallery}
               refreshKey={referenceGalleryRefreshKey}
+            />
+            <ImageGroupPanel
+              boardId={board.id}
+              onGroupChange={refreshImageGroups}
+              referenceImages={referenceImages}
+              refreshKey={groupRefreshKey}
             />
             <HistoryTray
               records={records}
