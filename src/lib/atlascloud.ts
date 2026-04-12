@@ -45,8 +45,7 @@ export class AtlasCloudError extends Error {
 }
 
 type AtlasCloudEnv = ImportMetaEnv & {
-  VITE_ATLASCLOUD_BASE_URL?: string;
-  VITE_ATLASCLOUD_API_KEY?: string;
+  VITE_ATLAS_PROXY_BASE?: string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -151,30 +150,18 @@ function debugResponse(path: string, body: unknown): void {
 }
 
 export function validateAtlasCloudEnv(env: AtlasCloudEnv = import.meta.env as AtlasCloudEnv): {
-  baseUrl: string;
-  apiKey: string;
+  proxyBase: string;
 } {
-  const baseUrl = env.VITE_ATLASCLOUD_BASE_URL?.trim() || DEFAULT_ATLASCLOUD_BASE_URL;
-  const apiKey = env.VITE_ATLASCLOUD_API_KEY?.trim();
-
-  if (!apiKey) {
-    throw new AtlasCloudError(
-      "Missing VITE_ATLASCLOUD_API_KEY. Atlas Cloud is required at startup.",
-    );
-  }
-
   return {
-    baseUrl,
-    apiKey,
+    proxyBase: env.VITE_ATLAS_PROXY_BASE?.trim() ?? "",
   };
 }
 
 async function atlasFetch(path: string, init?: RequestInit): Promise<unknown> {
-  const { baseUrl, apiKey } = validateAtlasCloudEnv();
-  const response = await fetch(`${baseUrl}${path}`, {
+  const { proxyBase } = validateAtlasCloudEnv();
+  const response = await fetch(`${proxyBase}/api/atlas${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },

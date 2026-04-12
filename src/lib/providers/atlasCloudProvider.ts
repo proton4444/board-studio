@@ -5,7 +5,6 @@ import {
   generateVideo,
   pollPrediction,
   uploadMedia,
-  validateAtlasCloudEnv,
   waitForCompletion,
   type PredictionResult,
 } from "../atlascloud";
@@ -141,13 +140,8 @@ export const atlasCloudProvider: GenerationProvider = {
   },
   async getBalance(): Promise<BalanceInfo | null> {
     try {
-      const { baseUrl, apiKey } = validateAtlasCloudEnv();
-      const response = await fetch(`${baseUrl}/account/balance`, {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const proxyBase = (import.meta.env as { VITE_ATLAS_PROXY_BASE?: string }).VITE_ATLAS_PROXY_BASE?.trim() ?? "";
+      const response = await fetch(`${proxyBase}/api/atlas/account/balance`);
 
       if (!response.ok) {
         return null;

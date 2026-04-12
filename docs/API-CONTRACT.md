@@ -171,6 +171,42 @@ Atlas Cloud is the only registered provider (`id: "atlas-cloud"`). The concrete
 implementation lives in `src/lib/providers/atlasCloudProvider.ts` and wraps the
 low-level HTTP client in `src/lib/atlascloud.ts`.
 
+## Local proxy
+
+In development and production, the browser never calls Atlas directly. All Atlas requests
+go through a local Express proxy server (`server/index.ts`):
+
+| Frontend route | Atlas upstream |
+|-----------------------------|----------------------------------------|
+| POST /api/atlas/model/generateImage | POST /model/generateImage |
+| POST /api/atlas/model/generateVideo | POST /model/generateVideo |
+| GET /api/atlas/model/prediction/:id | GET /model/prediction/:id |
+| POST /api/atlas/model/uploadMedia | POST /model/uploadMedia |
+| GET /api/atlas/account/balance | GET /account/balance |
+
+The proxy reads `ATLASCLOUD_API_KEY` from its own process environment (never from
+the browser bundle) and adds `Authorization: Bearer <key>` to each upstream request.
+
+The frontend reads `VITE_ATLAS_PROXY_BASE` (optional, defaults to empty string for
+same-origin relative URLs). No Atlas credentials are needed or accepted in frontend env.
+
+### Running locally
+
+```bash
+# Terminal 1 — frontend dev server (port 5173, proxies /api → :3001)
+npm run dev
+
+# Terminal 2 — Atlas proxy server (port 3001)
+ATLASCLOUD_API_KEY=your_key npm run dev:proxy
+```
+
+### Production
+
+```bash
+npm run build          # builds Vite output to dist/
+ATLASCLOUD_API_KEY=your_key npm start   # Express serves dist/ + /api/atlas/* routes
+```
+
 ### Capability declarations
 
 Each provider declares a `ProviderCapabilities` object. Atlas Cloud current values:

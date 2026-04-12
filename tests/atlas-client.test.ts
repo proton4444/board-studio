@@ -3,6 +3,7 @@ import {
   AtlasCloudError,
   generateImage,
   normalizeResponse,
+  validateAtlasCloudEnv,
   waitForCompletion,
 } from "../src/lib/atlascloud";
 
@@ -26,8 +27,7 @@ beforeEach(() => {
 
   Object.assign(import.meta.env, {
     DEV: false,
-    VITE_ATLASCLOUD_BASE_URL: "https://api.atlascloud.ai/api/v1",
-    VITE_ATLASCLOUD_API_KEY: "test-api-key",
+    VITE_ATLAS_PROXY_BASE: "",
   });
 });
 
@@ -48,6 +48,27 @@ test("normalizeResponse handles top-level Atlas payloads", () => {
     status: "succeeded",
     output: ["https://cdn.example.com/image.png"],
     error: undefined,
+  });
+});
+
+test("validateAtlasCloudEnv returns an empty proxy base by default", () => {
+  expect(validateAtlasCloudEnv()).toEqual({
+    proxyBase: "",
+  });
+});
+
+test("validateAtlasCloudEnv returns a custom proxy base when configured", () => {
+  expect(
+    validateAtlasCloudEnv({
+      BASE_URL: "/",
+      MODE: "test",
+      DEV: false,
+      PROD: false,
+      SSR: false,
+      VITE_ATLAS_PROXY_BASE: "http://proxy:3001",
+    }),
+  ).toEqual({
+    proxyBase: "http://proxy:3001",
   });
 });
 

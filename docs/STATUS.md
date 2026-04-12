@@ -25,10 +25,11 @@
 - Provider abstraction layer: `GenerationProvider` interface, Atlas Cloud concrete implementation, capability metadata, model profiles. Atlas is the only registered provider.
 - Balance visibility: Sidebar polls the active provider's balance endpoint on board load. Atlas Cloud implementation degrades gracefully when the endpoint is unavailable. Low-balance warning surfaced in Sidebar and PromptBlock.
 - Shot script assistant: per-board structured script with ordered shots (act/scene/prompt/group/duration/notes). Per-shot and bulk sequential generation. Script export as JSON.
+- Backend proxy: API key moved server-side. Frontend calls `/api/atlas/*` on the local proxy (Express). Vite dev server proxies `/api` to `:3001`. Production: Express serves static build + Atlas proxy routes. `VITE_ATLASCLOUD_API_KEY` removed from browser env.
 
 ## PLANNED / BLOCKED
 
-- Live smoke validation against Atlas Cloud still requires a real `VITE_ATLASCLOUD_API_KEY`.
+- Live smoke validation against Atlas Cloud still requires a real `ATLASCLOUD_API_KEY` on the proxy server.
 - Atlas-hosted reference uploads remain blocked on a true file upload path or a verified remote-URL upload flow; the MVP currently stores references as local data URLs instead.
 - Group-assisted multi-reference generation is limited by Atlas Cloud: image generation only receives appended reference names in prompt text, and video generation can only use the first group image as `image_url`.
 - True multi-image conditioning: BLOCKED — confirmed not available in the current Atlas Cloud contract. Current implementation uses prompt augmentation for image gen and first-member URL for video gen.
