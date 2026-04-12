@@ -13,6 +13,7 @@
 - The board editor supports the end-to-end flow: prompt -> image -> video -> history.
 - Generated images and videos render inline in `MediaOutputPanel` and expose direct download links.
 - Phase C.1 history/media/workflow UX polish: history filter, type badges, model humanisation, prompt truncation, group context in output viewer, reuse affordance.
+- History tray status filter (succeeded/failed) and date sort (newest/oldest first).
 - Card deletion is available on selected cards, with an active-generation guard preventing destructive removal mid-run.
 - Board export downloads a single board plus its generation history as JSON.
 - Board import validates JSON with Zod, restores valid generations, and surfaces graceful errors on bad input.

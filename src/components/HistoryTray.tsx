@@ -10,6 +10,8 @@ type HistoryTrayProps = {
 };
 
 type HistoryFilter = "all" | "image" | "video";
+export type HistoryStatusFilter = "all" | "succeeded" | "failed";
+export type HistorySort = "newest" | "oldest";
 type HistoryMediaType = "image" | "video" | "run";
 
 function getHistoryMediaType(record: GenerationRecord): HistoryMediaType {
@@ -42,6 +44,28 @@ function getGroupAssistedType(record: GenerationRecord): "group-assisted image" 
   return null;
 }
 
+export function isHistoryRecordVisible(
+  record: GenerationRecord,
+  filter: HistoryFilter,
+  statusFilter: HistoryStatusFilter,
+): boolean {
+  const mediaType = getHistoryMediaType(record);
+  const matchesType = filter === "all" || mediaType === filter;
+  const matchesStatus = statusFilter === "all" || record.status === statusFilter;
+
+  return matchesType && matchesStatus;
+}
+
+export function sortHistoryRecords(records: GenerationRecord[], sort: HistorySort): GenerationRecord[] {
+  return [...records].sort((left, right) => {
+    if (sort === "oldest") {
+      return left.createdAt.localeCompare(right.createdAt);
+    }
+
+    return right.createdAt.localeCompare(left.createdAt);
+  });
+}
+
 function HistoryTray({
   records,
   selectedGenerationId,
@@ -49,6 +73,9 @@ function HistoryTray({
   groupNameById,
 }: HistoryTrayProps) {
   const [filter, setFilter] = useState<HistoryFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("all");
+  const [sort, setSort] = useState<HistorySort>("newest");
+  const sortedRecords = sortHistoryRecords(records, sort);
 
   return (
     <section className="panel history-tray">
@@ -57,6 +84,17 @@ function HistoryTray({
           <p className="panel__eyebrow">History tray</p>
           <h2>Board runs</h2>
         </div>
+        <div className="history-tray__sort">
+          <label htmlFor="history-tray-sort">Order</label>
+          <select
+            id="history-tray-sort"
+            onChange={(event) => setSort(event.target.value as HistorySort)}
+            value={sort}
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </div>
       </div>
       {records.length === 0 ? (
         <div className="panel__empty">
@@ -64,34 +102,59 @@ function HistoryTray({
         </div>
       ) : (
         <>
-          <div className="history-tray__filter">
-            <button
-              className={`button button--ghost${filter === "all" ? " is-active" : ""}`}
-              onClick={() => setFilter("all")}
-              type="button"
-            >
-              All
-            </button>
-            <button
-              className={`button button--ghost${filter === "image" ? " is-active" : ""}`}
-              onClick={() => setFilter("image")}
-              type="button"
-            >
-              Images
-            </button>
-            <button
-              className={`button button--ghost${filter === "video" ? " is-active" : ""}`}
-              onClick={() => setFilter("video")}
-              type="button"
-            >
-              Videos
-            </button>
+          <div className="history-tray__filters">
+            <div className="history-tray__filter">
+              <button
+                className={`button button--ghost${filter === "all" ? " is-active" : ""}`}
+                onClick={() => setFilter("all")}
+                type="button"
+              >
+                All
+              </button>
+              <button
+                className={`button button--ghost${filter === "image" ? " is-active" : ""}`}
+                onClick={() => setFilter("image")}
+                type="button"
+              >
+                Images
+              </button>
+              <button
+                className={`button button--ghost${filter === "video" ? " is-active" : ""}`}
+                onClick={() => setFilter("video")}
+                type="button"
+              >
+                Videos
+              </button>
+            </div>
+            <div className="history-tray__filter">
+              <button
+                className={`button button--ghost${statusFilter === "all" ? " is-active" : ""}`}
+                onClick={() => setStatusFilter("all")}
+                type="button"
+              >
+                Any status
+              </button>
+              <button
+                className={`button button--ghost${statusFilter === "succeeded" ? " is-active" : ""}`}
+                onClick={() => setStatusFilter("succeeded")}
+                type="button"
+              >
+                Succeeded
+              </button>
+              <button
+                className={`button button--ghost${statusFilter === "failed" ? " is-active" : ""}`}
+                onClick={() => setStatusFilter("failed")}
+                type="button"
+              >
+                Failed
+              </button>
+            </div>
           </div>
           <div className="history-tray__list">
-            {records.map((record) => {
+            {sortedRecords.map((record) => {
               const preview = record.output?.[0];
               const mediaType = getHistoryMediaType(record);
-              const isVisible = filter === "all" || mediaType === filter;
+              const isVisible = isHistoryRecordVisible(record, filter, statusFilter);
               const groupName = record.referenceGroupId
                 ? groupNameById[record.referenceGroupId] ?? "Unknown group"
                 : null;
