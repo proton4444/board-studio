@@ -24,6 +24,12 @@ type PromptBlockProps = {
   onNumOutputsChange: (value: number) => void;
   duration: number;
   onDurationChange: (value: number) => void;
+  seed: number | undefined;
+  onSeedChange: (value: number | undefined) => void;
+  guidanceScale: number;
+  onGuidanceScaleChange: (value: number) => void;
+  outputFormat: string;
+  onOutputFormatChange: (value: string) => void;
   showVideoParameters?: boolean;
 };
 
@@ -50,6 +56,12 @@ function PromptBlock({
   onNumOutputsChange,
   duration,
   onDurationChange,
+  seed,
+  onSeedChange,
+  guidanceScale,
+  onGuidanceScaleChange,
+  outputFormat,
+  onOutputFormatChange,
   showVideoParameters,
 }: PromptBlockProps) {
   const canSubmit =
@@ -160,6 +172,50 @@ function PromptBlock({
                 </label>
               ) : null}
             </div>
+            <details className="prompt-block__advanced">
+              <summary>Advanced parameters</summary>
+              <div className="prompt-block__parameter-grid">
+                <label className="field">
+                  <span>Seed (empty = random)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="4294967295"
+                    placeholder="Random"
+                    value={seed ?? ""}
+                    onChange={(event) => {
+                      const raw = event.target.value;
+                      onSeedChange(raw === "" ? undefined : Math.max(0, Math.trunc(Number(raw))));
+                    }}
+                  />
+                </label>
+                <label className="field">
+                  <span>Guidance scale</span>
+                  <select
+                    value={String(guidanceScale)}
+                    onChange={(event) => onGuidanceScaleChange(Number(event.target.value))}
+                  >
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="5">5</option>
+                    <option value="7">7 (default)</option>
+                    <option value="10">10</option>
+                    <option value="15">15</option>
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Output format</span>
+                  <select
+                    value={outputFormat}
+                    onChange={(event) => onOutputFormatChange(event.target.value)}
+                  >
+                    <option value="png">PNG</option>
+                    <option value="webp">WebP</option>
+                  </select>
+                </label>
+              </div>
+            </details>
           </details>
           <p className="prompt-block__hint">
             Tip: reference group names will be included in your prompt to help guide the image model.

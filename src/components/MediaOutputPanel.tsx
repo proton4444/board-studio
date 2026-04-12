@@ -88,6 +88,9 @@ function MediaOutputPanel({
             <span>{humaniseModelId(record.model)}</span>
             {groupName ? <span>{`Group: ${groupName}`}</span> : null}
             <span>{formatShortDate(record.createdAt)}</span>
+            {record.seed !== undefined ? (
+              <span className="media-output-panel__seed">Seed: {record.seed}</span>
+            ) : null}
           </div>
           <p className="media-output-panel__prompt">{record.prompt}</p>
           {panelErrorMessage ? <p className="panel__error">{panelErrorMessage}</p> : null}

@@ -26,6 +26,9 @@ type ImageGenerationParams = BaseGenerationParams & {
   prompt: string;
   aspect_ratio?: string;
   num_outputs?: number;
+  seed?: number;
+  guidance_scale?: number;
+  output_format?: string;
 };
 
 type VideoGenerationParams = BaseGenerationParams & {
@@ -55,6 +58,9 @@ type GenerationRecordContext = {
   mediaType: MediaItem["type"];
   referenceGroupId?: string;
   referenceImageIds?: string[];
+  seed?: number;
+  guidanceScale?: number;
+  outputFormat?: string;
   createdAt?: string;
 };
 
@@ -66,7 +72,12 @@ function toGenerationStatus(status: PredictionResult["status"]): GenerationStatu
   return status;
 }
 
-function buildOutput(recordId: string, mediaType: MediaItem["type"], urls?: string[]): MediaItem[] | undefined {
+function buildOutput(
+  recordId: string,
+  mediaType: MediaItem["type"],
+  urls?: string[],
+  outputFormat?: string,
+): MediaItem[] | undefined {
   if (!urls?.length) {
     return undefined;
   }
@@ -75,7 +86,12 @@ function buildOutput(recordId: string, mediaType: MediaItem["type"], urls?: stri
     id: `${recordId}_output_${index}`,
     type: mediaType,
     url,
-    mimeType: mediaType === "video" ? "video/mp4" : "image/png",
+    mimeType:
+      mediaType === "video"
+        ? "video/mp4"
+        : outputFormat === "webp"
+          ? "image/webp"
+          : "image/png",
     meta: {
       source: "atlas-cloud",
       index,
@@ -105,7 +121,10 @@ export function mergePredictionIntoGenerationRecord(
     createdAt,
     completedAt,
     error: prediction.error,
-    output: buildOutput(prediction.id, context.mediaType, prediction.output),
+    seed: context.seed,
+    guidanceScale: context.guidanceScale,
+    outputFormat: context.outputFormat,
+    output: buildOutput(prediction.id, context.mediaType, prediction.output, context.outputFormat),
   };
 }
 
@@ -118,6 +137,9 @@ function getStoredContext(record: GenerationRecord): GenerationRecordContext {
     provider: record.provider,
     referenceGroupId: record.referenceGroupId,
     referenceImageIds: record.referenceImageIds,
+    seed: record.seed,
+    guidanceScale: record.guidanceScale,
+    outputFormat: record.outputFormat,
     mediaType:
       record.output?.[0]?.type && record.output[0].type !== "text"
         ? record.output[0].type
@@ -141,6 +163,9 @@ export function buildImageGenParams(
     referenceImageIds: options.referenceImageIds,
     aspect_ratio: options.aspect_ratio,
     num_outputs: options.num_outputs,
+    seed: options.seed,
+    guidance_scale: options.guidance_scale,
+    output_format: options.output_format,
   };
 }
 
@@ -156,6 +181,9 @@ export async function requestGeneration(
       prompt: params.prompt,
       aspect_ratio: params.aspect_ratio,
       num_outputs: params.num_outputs,
+      seed: params.seed,
+      guidance_scale: params.guidance_scale,
+      output_format: params.output_format,
     });
 
     return mergePredictionIntoGenerationRecord(
@@ -168,6 +196,9 @@ export async function requestGeneration(
         mediaType: "image",
         referenceGroupId: params.referenceGroupId,
         referenceImageIds: params.referenceImageIds,
+        seed: params.seed,
+        guidanceScale: params.guidance_scale,
+        outputFormat: params.output_format,
       },
       prediction,
     );

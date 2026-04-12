@@ -19,6 +19,7 @@
 - Board import validates JSON with Zod, restores valid generations, and surfaces graceful errors on bad input.
 - Board thumbnail: dashboard cards show the most recent succeeded image output as a thumbnail; falls back to a placeholder.
 - Generation parameters UI supports aspect ratio and output count for images, plus video duration for video paths.
+- Advanced generation parameters: seed (stored in record, displayed in output viewer), guidance scale, and output format exposed in PromptBlock advanced parameters panel. Image-generation path only.
 - Atlas client normalization, error handling, and polling behavior are covered by automated tests.
 - Collage editor modal: compose N reference images into a grid PNG, saved as a new reference image. Trigger in gallery panel.
 - Provider abstraction layer: `GenerationProvider` interface, Atlas Cloud concrete implementation, capability metadata, model profiles. Atlas is the only registered provider.

@@ -844,6 +844,17 @@ a {
   margin-top: 0.9rem;
 }
 
+.prompt-block__advanced {
+  margin-top: 4px;
+}
+
+.prompt-block__advanced summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text-muted, #888);
+  padding: 4px 0;
+}
+
 .prompt-block__group-preview,
 .prompt-block__actions {
   display: grid;
@@ -895,6 +906,12 @@ a {
   gap: 0.55rem 1rem;
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.media-output-panel__seed {
+  font-size: 11px;
+  color: var(--color-text-muted, #888);
+  font-family: monospace;
 }
 
 .media-output-panel__prompt {

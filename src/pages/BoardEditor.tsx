@@ -168,6 +168,9 @@ function BoardEditor() {
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [numOutputs, setNumOutputs] = useState(1);
   const [duration, setDuration] = useState(5);
+  const [seed, setSeed] = useState<number | undefined>(undefined);
+  const [guidanceScale, setGuidanceScale] = useState(7);
+  const [outputFormat, setOutputFormat] = useState("png");
   const [script, setScript] = useState<Script | null>(null);
   const [shotGenerationStatus, setShotGenerationStatus] = useState<
     Record<string, "pending" | "running" | "done" | "failed">
@@ -545,6 +548,9 @@ function BoardEditor() {
           referenceImageIds: selectedGroup?.referenceImageIds,
           aspect_ratio: aspectRatio,
           num_outputs: numOutputs,
+          seed,
+          guidance_scale: guidanceScale,
+          output_format: outputFormat,
         }),
       );
       const finalRecord = await resolveGenerationLifecycle(initialRecord);
@@ -774,6 +780,9 @@ function BoardEditor() {
       setActiveGeneration(null);
       setBusyAction(null);
       setShowCollageEditor(false);
+      setSeed(undefined);
+      setGuidanceScale(7);
+      setOutputFormat("png");
       setScript(null);
       setShotGenerationStatus({});
       setIsBulkGenerating(false);
@@ -799,6 +808,9 @@ function BoardEditor() {
     setErrorMessage(null);
     setLastSelectedImageUrl(null);
     setShowCollageEditor(false);
+    setSeed(undefined);
+    setGuidanceScale(7);
+    setOutputFormat("png");
     refreshReferenceGallery();
     void fetchBalance();
   }, [boardId]);
@@ -973,6 +985,12 @@ function BoardEditor() {
             onNumOutputsChange={setNumOutputs}
             duration={duration}
             onDurationChange={setDuration}
+            seed={seed}
+            onSeedChange={setSeed}
+            guidanceScale={guidanceScale}
+            onGuidanceScaleChange={setGuidanceScale}
+            outputFormat={outputFormat}
+            onOutputFormatChange={setOutputFormat}
             showVideoParameters={Boolean(selectedReferenceGroupId)}
           />
           <MediaOutputPanel

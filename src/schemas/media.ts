@@ -54,6 +54,9 @@ export const generationRecordSchema = z.object({
   createdAt: timestampSchema,
   completedAt: timestampSchema.optional(),
   error: z.string().min(1).optional(),
+  seed: z.number().int().min(0).optional(),
+  guidanceScale: z.number().optional(),
+  outputFormat: z.string().optional(),
   output: z.array(mediaItemSchema).optional(),
 });
 
