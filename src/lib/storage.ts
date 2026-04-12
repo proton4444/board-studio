@@ -110,6 +110,21 @@ export function listGenerationsByBoard(boardId: string): GenerationRecord[] {
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
+export function getLatestBoardThumbnailUrl(boardId: string): string | null {
+  const records = listGenerationsByBoard(boardId);
+
+  for (const record of records) {
+    if (record.status !== "succeeded") continue;
+    const firstOutput = record.output?.[0];
+
+    if (firstOutput?.type === "image" && firstOutput.url) {
+      return firstOutput.url;
+    }
+  }
+
+  return null;
+}
+
 export function exportGenerationsByBoard(boardId: string): string {
   return JSON.stringify(listGenerationsByBoard(boardId), null, 2);
 }

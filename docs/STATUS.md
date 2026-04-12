@@ -17,6 +17,7 @@
 - Card deletion is available on selected cards, with an active-generation guard preventing destructive removal mid-run.
 - Board export downloads a single board plus its generation history as JSON.
 - Board import validates JSON with Zod, restores valid generations, and surfaces graceful errors on bad input.
+- Board thumbnail: dashboard cards show the most recent succeeded image output as a thumbnail; falls back to a placeholder.
 - Generation parameters UI supports aspect ratio and output count for images, plus video duration for video paths.
 - Atlas client normalization, error handling, and polling behavior are covered by automated tests.
 - Collage editor modal: compose N reference images into a grid PNG, saved as a new reference image. Trigger in gallery panel.

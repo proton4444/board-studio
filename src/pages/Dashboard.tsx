@@ -1,6 +1,12 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteBoard, listBoards, saveBoard, saveGeneration } from "../lib/storage";
+import {
+  deleteBoard,
+  getLatestBoardThumbnailUrl,
+  listBoards,
+  saveBoard,
+  saveGeneration,
+} from "../lib/storage";
 import { createId, formatShortDate, nowIso } from "../lib/utils";
 import { boardSchema, type Board, type Card } from "../schemas/board";
 import { generationRecordSchema } from "../schemas/media";
@@ -128,27 +134,38 @@ function Dashboard() {
         </div>
       ) : (
         <div className="dashboard__grid">
-          {boards.map((board) => (
-            <article className="dashboard-card" key={board.id}>
-              <button
-                className="dashboard-card__main"
-                onClick={() => navigate(`/boards/${board.id}`)}
-                type="button"
-              >
-                <p className="dashboard-card__eyebrow">{board.cards.length} cards</p>
-                <h2>{board.name}</h2>
-                <p>{board.description}</p>
-                <small>Updated {formatShortDate(board.updatedAt)}</small>
-              </button>
-              <button
-                className="button button--ghost"
-                onClick={() => handleDeleteBoard(board.id)}
-                type="button"
-              >
-                Delete
-              </button>
-            </article>
-          ))}
+          {boards.map((board) => {
+            const thumbnailUrl = getLatestBoardThumbnailUrl(board.id);
+
+            return (
+              <article className="dashboard-card" key={board.id}>
+                <button
+                  className="dashboard-card__main"
+                  onClick={() => navigate(`/boards/${board.id}`)}
+                  type="button"
+                >
+                  <div className="dashboard-card__thumb">
+                    {thumbnailUrl ? (
+                      <img alt="" className="dashboard-card__thumb-img" src={thumbnailUrl} />
+                    ) : (
+                      <div className="dashboard-card__thumb-placeholder" aria-hidden="true" />
+                    )}
+                  </div>
+                  <p className="dashboard-card__eyebrow">{board.cards.length} cards</p>
+                  <h2>{board.name}</h2>
+                  <p>{board.description}</p>
+                  <small>Updated {formatShortDate(board.updatedAt)}</small>
+                </button>
+                <button
+                  className="button button--ghost"
+                  onClick={() => handleDeleteBoard(board.id)}
+                  type="button"
+                >
+                  Delete
+                </button>
+              </article>
+            );
+          })}
         </div>
       )}
     </section>
