@@ -16,10 +16,11 @@ Request shape:
 {
   "model": "google/nano-banana/text-to-image",
   "prompt": "Editorial still life with folded paper and glass.",
-  "aspect_ratio": "16:9",
-  "num_outputs": 1
+  "aspect_ratio": "16:9"
 }
 ```
+
+Confirmed public Atlas docs for `google/nano-banana/text-to-image` currently document `model`, `prompt`, `aspect_ratio`, `enable_base64_output`, `enable_sync_mode`, and `output_format`. No reference-image or multi-image input field is documented for this model.
 
 Response shape:
 
@@ -46,16 +47,38 @@ Request shape:
 }
 ```
 
+Atlas publicly describes `bytedance/seedance-2.0-fast/image-to-video` as a first-frame image flow. Separate Seedance `reference-to-video` models are documented elsewhere for multimodal reference inputs, but that is a different model contract from the one board-studio currently calls.
+
 Response shape:
 
 - Same dual-envelope prediction contract as `generateImage`.
 
 ## Multi-reference input
 
-- `generateImage` does not expose any reference-image input fields. In board-studio, selecting an image group only appends a best-effort note to the submitted prompt text in the form `[References: name1, name2, ...]`.
-- `generateVideo` accepts exactly one `image_url`. In board-studio, the group-assisted video flow uses the first member of the selected image group as that `image_url`.
-- True multi-reference generation is blocked until Atlas Cloud exposes provider support for multiple image inputs.
+- `generateImage` has no confirmed reference-image input field in the current Atlas Cloud contract for `google/nano-banana/text-to-image`. In board-studio, selecting an image group appends a production bridge note to the submitted prompt text in the form `[References: name1, name2, ...]`.
+- `generateVideo` uses the current `bytedance/seedance-2.0-fast/image-to-video` path, which takes one first-frame image. In board-studio, the group-assisted video flow uses the first member of the selected image group as that `image_url`.
+- True multi-image conditioning is blocked in the current board-studio Atlas integration.
 - Local data URL references cannot be used with `generateVideo`. Atlas Cloud requires a remote hosted URL for `image_url`.
+
+## Multi-image blocker
+
+What was checked:
+
+- Local contract and production client wiring in [src/lib/atlascloud.ts](/Users/simone/worktrees/board-studio/vk-ced14eaf-build-board-studio-mvp/src/lib/atlascloud.ts), [src/lib/api.ts](/Users/simone/worktrees/board-studio/vk-ced14eaf-build-board-studio-mvp/src/lib/api.ts), [src/lib/multiref.ts](/Users/simone/worktrees/board-studio/vk-ced14eaf-build-board-studio-mvp/src/lib/multiref.ts), and [src/pages/BoardEditor.tsx](/Users/simone/worktrees/board-studio/vk-ced14eaf-build-board-studio-mvp/src/pages/BoardEditor.tsx).
+- Atlas public docs for `google/nano-banana/text-to-image`: `https://www.atlascloud.ai/docs/openapi-index` and `https://www.atlascloud.ai/models/google/nano-banana/text-to-image`.
+- Atlas public Seedance pages for current image-to-video vs separate reference-to-video capabilities: `https://www.atlascloud.ai/seedance-2` and `https://www.atlascloud.ai/models/bytedance/seedance-2.0-fast/image-to-video`.
+- Direct schema endpoint probes from the local shell: `https://api.atlascloud.ai/openapi.json`, `https://api.atlascloud.ai/swagger.json`, `https://api.atlascloud.ai/docs`, and `https://api.atlascloud.ai/redoc`.
+
+What was found:
+
+- No public Atlas documentation was found that confirms any multi-image array field for `POST /model/generateImage` with `google/nano-banana/text-to-image`.
+- The only public Atlas evidence for `reference_images` was on separate Seedance `reference-to-video` documentation and portrait-library guidance, not on the `google/nano-banana/text-to-image` contract and not on the current `bytedance/seedance-2.0-fast/image-to-video` model used by board-studio.
+- The local shell could not retrieve machine-readable schema endpoints because DNS resolution for `api.atlascloud.ai` failed in this environment (`curl: (6) Could not resolve host: api.atlascloud.ai`).
+
+What would unblock this:
+
+- Atlas Cloud publishes a documented multi-image input field for `google/nano-banana/text-to-image`, or
+- board-studio switches to a separately documented Atlas model whose public contract explicitly supports multi-image/reference-image input and updates the client request shape accordingly.
 
 ### `POST /model/uploadMedia`
 

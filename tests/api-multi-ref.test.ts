@@ -1,5 +1,6 @@
 import {
   appendReferenceNamesToPrompt,
+  getOrderedGroupReferenceNames,
   selectVideoReferenceImageUrl,
 } from "../src/lib/multiref";
 import type { ImageGroup, ReferenceImage } from "../src/schemas/media";
@@ -44,6 +45,19 @@ test("appendReferenceNamesToPrompt adds a best-effort reference note", () => {
     ]),
   ).toBe(
     "Studio portrait with cinematic rim light.\n\n[References: Hero profile, Wardrobe detail]",
+  );
+});
+
+test("group-assisted image generation uses ordered prompt augmentation as the production bridge path", () => {
+  const orderedReferenceNames = getOrderedGroupReferenceNames(imageGroupFixture, referenceImagesById);
+
+  expect(
+    appendReferenceNamesToPrompt(
+      "Studio portrait with cinematic rim light.",
+      orderedReferenceNames,
+    ),
+  ).toBe(
+    "Studio portrait with cinematic rim light.\n\n[References: Wardrobe detail, Hero profile]",
   );
 });
 
