@@ -4,6 +4,8 @@ import BoardCanvas from "../components/BoardCanvas";
 import HistoryTray from "../components/HistoryTray";
 import MediaOutputPanel from "../components/MediaOutputPanel";
 import PromptBlock from "../components/PromptBlock";
+import ReferenceGalleryPanel from "../components/ReferenceGalleryPanel";
+import ReferenceUploadPanel from "../components/ReferenceUploadPanel";
 import Sidebar from "../components/Sidebar";
 import { mergePredictionIntoGenerationRecord, pollGenerationStatus, requestGeneration } from "../lib/api";
 import {
@@ -122,6 +124,7 @@ function BoardEditor() {
   const [activeGeneration, setActiveGeneration] = useState<ActiveGeneration>(null);
   const [busyAction, setBusyAction] = useState<"image" | "video" | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [referenceGalleryRefreshKey, setReferenceGalleryRefreshKey] = useState(0);
 
   function refreshBoards() {
     setBoards(listBoards().map(({ id, name }) => ({ id, name })));
@@ -150,6 +153,10 @@ function BoardEditor() {
         updatedAt: nowIso(),
       };
     });
+  }
+
+  function refreshReferenceGallery() {
+    setReferenceGalleryRefreshKey((current) => current + 1);
   }
 
   function saveAndSelectRecord(record: GenerationRecord) {
@@ -365,6 +372,7 @@ function BoardEditor() {
     setActiveGeneration(null);
     setBusyAction(null);
     setErrorMessage(null);
+    refreshReferenceGallery();
   }, [boardId]);
 
   useEffect(() => {
@@ -491,11 +499,21 @@ function BoardEditor() {
               void handleMakeVideo(record, imageUrl);
             }}
           />
-          <HistoryTray
-            records={records}
-            selectedGenerationId={selectedGenerationId}
-            onSelect={setSelectedGenerationId}
-          />
+          <div className="board-editor__panel-stack">
+            <ReferenceUploadPanel
+              boardId={board.id}
+              onUploadComplete={refreshReferenceGallery}
+            />
+            <ReferenceGalleryPanel
+              boardId={board.id}
+              refreshKey={referenceGalleryRefreshKey}
+            />
+            <HistoryTray
+              records={records}
+              selectedGenerationId={selectedGenerationId}
+              onSelect={setSelectedGenerationId}
+            />
+          </div>
         </div>
       </div>
     </section>

@@ -3,11 +3,14 @@ import { boardCollectionSchema, boardSchema, type Board } from "../schemas/board
 import {
   generationCollectionSchema,
   generationRecordSchema,
+  referenceImageSchema,
+  type ReferenceImage,
   type GenerationRecord,
 } from "../schemas/media";
 
 const BOARD_PREFIX = "board:";
 const GENERATION_PREFIX = "generation:";
+const REFERENCE_IMAGE_PREFIX = "reference-image:";
 
 function getStorage(): Storage {
   if (!("localStorage" in globalThis)) {
@@ -73,6 +76,8 @@ export function deleteBoard(id: string): void {
 
   const generations = listGenerationsByBoard(id);
   generations.forEach((record) => storage.removeItem(`${GENERATION_PREFIX}${record.id}`));
+  const referenceImages = loadReferenceImages(id);
+  referenceImages.forEach((image) => storage.removeItem(`${REFERENCE_IMAGE_PREFIX}${image.id}`));
 }
 
 export function exportBoards(): string {
@@ -108,4 +113,19 @@ export function importGenerations(json: string): GenerationRecord[] {
   const parsed = generationCollectionSchema.parse(JSON.parse(json));
   parsed.forEach((record) => saveGeneration(record));
   return parsed;
+}
+
+export function saveReferenceImage(image: ReferenceImage): void {
+  const safeImage = referenceImageSchema.parse(image);
+  getStorage().setItem(`${REFERENCE_IMAGE_PREFIX}${safeImage.id}`, JSON.stringify(safeImage));
+}
+
+export function loadReferenceImages(boardId: string): ReferenceImage[] {
+  return collectByPrefix(REFERENCE_IMAGE_PREFIX, referenceImageSchema)
+    .filter((image) => image.boardId === boardId)
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+export function deleteReferenceImage(id: string): void {
+  getStorage().removeItem(`${REFERENCE_IMAGE_PREFIX}${id}`);
 }

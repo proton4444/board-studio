@@ -1,4 +1,9 @@
-import { generationRecordSchema, type GenerationRecord } from "../src/schemas/media";
+import {
+  generationRecordSchema,
+  referenceImageSchema,
+  type GenerationRecord,
+  type ReferenceImage,
+} from "../src/schemas/media";
 
 const mediaFixture: GenerationRecord = {
   id: "generation_fixture",
@@ -35,4 +40,22 @@ const mediaFixture: GenerationRecord = {
 
 test("generation schema accepts a valid fixture with media items", () => {
   expect(generationRecordSchema.parse(mediaFixture)).toEqual(mediaFixture);
+});
+
+const referenceFixture: ReferenceImage = {
+  id: "reference_fixture",
+  boardId: "board_fixture",
+  type: "image",
+  url: "data:image/png;base64,ZmFrZS1yZWZlcmVuY2U=",
+  name: "reference.png",
+  createdAt: "2026-04-12T10:20:00.000Z",
+  mimeType: "image/png",
+  meta: {
+    source: "upload",
+    storage: "data-url",
+  },
+};
+
+test("reference image schema accepts a valid uploaded reference fixture", () => {
+  expect(referenceImageSchema.parse(referenceFixture)).toEqual(referenceFixture);
 });
