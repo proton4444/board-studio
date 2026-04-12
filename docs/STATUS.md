@@ -12,6 +12,7 @@
 - Group-assisted reference generation is wired into the board editor: image generation uses prompt augmentation as the production bridge path, and group-based video generation uses the first image as `image_url`.
 - The board editor supports the end-to-end flow: prompt -> image -> video -> history.
 - Generated images and videos render inline in `MediaOutputPanel` and expose direct download links.
+- Phase C.1 history/media/workflow UX polish: history filter, type badges, model humanisation, prompt truncation, group context in output viewer, reuse affordance.
 - Atlas client normalization, error handling, and polling behavior are covered by automated tests.
 
 ## PLANNED / BLOCKED

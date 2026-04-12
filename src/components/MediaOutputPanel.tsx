@@ -1,4 +1,4 @@
-import { formatShortDate } from "../lib/utils";
+import { formatShortDate, humaniseModelId } from "../lib/utils";
 import type { GenerationRecord, MediaItem } from "../schemas/media";
 
 type MediaOutputPanelProps = {
@@ -6,6 +6,8 @@ type MediaOutputPanelProps = {
   isCreatingVideo: boolean;
   panelErrorMessage: string | null;
   onMakeVideo: (record: GenerationRecord, imageUrl: string) => void;
+  groupNameById?: Record<string, string>;
+  onUseAsVideoReference?: (url: string) => void;
 };
 
 function renderMediaContent(item: MediaItem) {
@@ -39,6 +41,8 @@ function MediaOutputPanel({
   isCreatingVideo,
   panelErrorMessage,
   onMakeVideo,
+  groupNameById = {},
+  onUseAsVideoReference,
 }: MediaOutputPanelProps) {
   const imageOutput = record?.output?.find((item) => item.type === "image" && item.url);
   const canMakeVideo =
@@ -46,6 +50,9 @@ function MediaOutputPanel({
     record?.status === "succeeded" &&
     imageOutput?.url &&
     record.model === "google/nano-banana/text-to-image";
+  const groupName = record?.referenceGroupId
+    ? groupNameById[record.referenceGroupId] ?? "Unknown group"
+    : null;
 
   return (
     <section className="panel media-output-panel">
@@ -62,7 +69,7 @@ function MediaOutputPanel({
               onClick={() => onMakeVideo(record, imageOutput.url!)}
               type="button"
             >
-              {isCreatingVideo ? "Making video..." : "Make Video"}
+              {isCreatingVideo ? "Generating video…" : "Make Video"}
             </button>
           ) : null}
           {record ? (
@@ -78,7 +85,8 @@ function MediaOutputPanel({
         <>
           <div className="media-output-panel__meta">
             <span>{record.provider}</span>
-            <span>{record.model}</span>
+            <span>{humaniseModelId(record.model)}</span>
+            {groupName ? <span>{`Group: ${groupName}`}</span> : null}
             <span>{formatShortDate(record.createdAt)}</span>
           </div>
           <p className="media-output-panel__prompt">{record.prompt}</p>
@@ -89,11 +97,22 @@ function MediaOutputPanel({
                 <article className="media-tile" key={item.id}>
                   <p className="media-tile__label">{item.type}</p>
                   {renderMediaContent(item)}
-                  {item.url ? (
-                    <a className="button button--ghost media-tile__download" download href={item.url}>
-                      Download
-                    </a>
-                  ) : null}
+                  <div className="media-tile__actions">
+                    {item.type === "image" && item.url && onUseAsVideoReference ? (
+                      <button
+                        className="button button--ghost"
+                        onClick={() => onUseAsVideoReference(item.url!)}
+                        type="button"
+                      >
+                        Use as reference
+                      </button>
+                    ) : null}
+                    {item.url ? (
+                      <a className="button button--ghost media-tile__download" download href={item.url}>
+                        Download
+                      </a>
+                    ) : null}
+                  </div>
                   {item.mimeType ? <p className="media-tile__meta">{item.mimeType}</p> : null}
                 </article>
               ))

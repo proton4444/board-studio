@@ -1,3 +1,4 @@
+import { humaniseModelId } from "../lib/utils";
 import type { GenerationStatus, ImageGroup, ReferenceImage } from "../schemas/media";
 
 type PromptBlockProps = {
@@ -80,7 +81,7 @@ function PromptBlock({
           <div className="prompt-block__grid">
             <label className="field">
               <span>Model</span>
-              <input readOnly value={model} />
+              <input readOnly value={humaniseModelId(model)} />
             </label>
             <label className="field">
               <span>Provider</span>
@@ -96,14 +97,13 @@ function PromptBlock({
               <option value="">None</option>
               {groups.map((group) => (
                 <option key={group.id} value={group.id}>
-                  {group.name}
+                  {`${group.name} (${group.referenceImageIds.length})`}
                 </option>
               ))}
             </select>
           </label>
           <p className="prompt-block__hint">
-            Atlas Cloud image generation does not accept image inputs. When a group is selected, board-studio appends
-            its reference names to the prompt as a best-effort hint.
+            Tip: reference group names will be included in your prompt to help guide the image model.
           </p>
           {selectedGroupId ? (
             selectedGroupPreview.length > 0 ? (
@@ -141,7 +141,7 @@ function PromptBlock({
               onClick={onSubmitVideoFromGroup}
               type="button"
             >
-              {isSubmittingVideo ? "Making video..." : "Generate Video from Group"}
+              {isSubmittingVideo ? "Making video..." : "Video from Group"}
             </button>
           </div>
           {errorMessage ? <p className="panel__error">{errorMessage}</p> : null}

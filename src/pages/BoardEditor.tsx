@@ -149,6 +149,7 @@ function BoardEditor() {
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [imageGroups, setImageGroups] = useState<ImageGroup[]>([]);
   const [selectedReferenceGroupId, setSelectedReferenceGroupId] = useState("");
+  const [lastSelectedImageUrl, setLastSelectedImageUrl] = useState<string | null>(null);
   const [referenceGalleryRefreshKey, setReferenceGalleryRefreshKey] = useState(0);
   const [groupRefreshKey, setGroupRefreshKey] = useState(0);
 
@@ -457,13 +458,15 @@ function BoardEditor() {
       return;
     }
 
+    const referenceImageUrl = lastSelectedImageUrl ?? imageUrl;
+
     setBusyAction("video");
     setErrorMessage(null);
 
     try {
       const prediction = await generateVideo({
         model: ATLASCLOUD_VIDEO_MODEL,
-        image_url: imageUrl,
+        image_url: referenceImageUrl,
         prompt: sourceRecord.prompt,
         duration: 5,
       });
@@ -490,6 +493,7 @@ function BoardEditor() {
       setErrorMessage(extractErrorMessage(error, "Video generation request failed."));
     } finally {
       setBusyAction(null);
+      setLastSelectedImageUrl(null);
     }
   }
 
@@ -514,6 +518,7 @@ function BoardEditor() {
       setSelectedCardId(null);
       setSelectedGenerationId(null);
       setSelectedReferenceGroupId("");
+      setLastSelectedImageUrl(null);
       setActiveGeneration(null);
       setBusyAction(null);
       return;
@@ -533,8 +538,13 @@ function BoardEditor() {
     setActiveGeneration(null);
     setBusyAction(null);
     setErrorMessage(null);
+    setLastSelectedImageUrl(null);
     refreshReferenceGallery();
   }, [boardId]);
+
+  useEffect(() => {
+    setLastSelectedImageUrl(null);
+  }, [selectedGenerationId]);
 
   useEffect(() => {
     if (!board) {
@@ -674,8 +684,12 @@ function BoardEditor() {
             record={displayedGeneration}
             isCreatingVideo={busyAction === "video"}
             panelErrorMessage={errorMessage ?? displayedGeneration?.error ?? null}
+            groupNameById={groupNameById}
             onMakeVideo={(record, imageUrl) => {
               void handleMakeVideo(record, imageUrl);
+            }}
+            onUseAsVideoReference={(url) => {
+              setLastSelectedImageUrl(url);
             }}
           />
           <div className="board-editor__panel-stack">
