@@ -14,9 +14,16 @@ type ReferenceGalleryPanelProps = {
   refreshKey?: number;
   items?: ReferenceImage[];
   onChange?: () => void;
+  onOpenCollageEditor?: () => void;
 };
 
-function ReferenceGalleryPanel({ boardId, refreshKey = 0, items, onChange }: ReferenceGalleryPanelProps) {
+function ReferenceGalleryPanel({
+  boardId,
+  refreshKey = 0,
+  items,
+  onChange,
+  onOpenCollageEditor,
+}: ReferenceGalleryPanelProps) {
   const [references, setReferences] = useState<ReferenceImage[]>(() => items ?? []);
 
   useEffect(() => {
@@ -42,6 +49,15 @@ function ReferenceGalleryPanel({ boardId, refreshKey = 0, items, onChange }: Ref
           <p className="panel__eyebrow">Reference gallery</p>
           <h2>Board references</h2>
         </div>
+        {onOpenCollageEditor ? (
+          <button
+            className="button button--ghost"
+            onClick={onOpenCollageEditor}
+            type="button"
+          >
+            Create collage
+          </button>
+        ) : null}
       </div>
       {displayedItems.length === 0 ? (
         <div className="panel__empty">

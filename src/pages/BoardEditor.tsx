@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import BoardCanvas from "../components/BoardCanvas";
+import CollageEditorModal from "../components/CollageEditorModal";
 import HistoryTray from "../components/HistoryTray";
 import ImageGroupPanel from "../components/ImageGroupPanel";
 import MediaOutputPanel from "../components/MediaOutputPanel";
@@ -158,6 +159,7 @@ function BoardEditor() {
   const [lastSelectedImageUrl, setLastSelectedImageUrl] = useState<string | null>(null);
   const [referenceGalleryRefreshKey, setReferenceGalleryRefreshKey] = useState(0);
   const [groupRefreshKey, setGroupRefreshKey] = useState(0);
+  const [showCollageEditor, setShowCollageEditor] = useState(false);
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [numOutputs, setNumOutputs] = useState(1);
   const [duration, setDuration] = useState(5);
@@ -587,6 +589,7 @@ function BoardEditor() {
       setLastSelectedImageUrl(null);
       setActiveGeneration(null);
       setBusyAction(null);
+      setShowCollageEditor(false);
       return;
     }
 
@@ -605,6 +608,7 @@ function BoardEditor() {
     setBusyAction(null);
     setErrorMessage(null);
     setLastSelectedImageUrl(null);
+    setShowCollageEditor(false);
     refreshReferenceGallery();
   }, [boardId]);
 
@@ -781,6 +785,7 @@ function BoardEditor() {
             <ReferenceGalleryPanel
               boardId={board.id}
               onChange={refreshReferenceGallery}
+              onOpenCollageEditor={() => setShowCollageEditor(true)}
               refreshKey={referenceGalleryRefreshKey}
             />
             <ImageGroupPanel
@@ -797,6 +802,14 @@ function BoardEditor() {
             />
           </div>
         </div>
+
+        <CollageEditorModal
+          boardId={board.id}
+          onClose={() => setShowCollageEditor(false)}
+          onSave={refreshReferenceGallery}
+          open={showCollageEditor}
+          referenceImages={referenceImages}
+        />
       </div>
     </section>
   );
