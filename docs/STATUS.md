@@ -7,6 +7,7 @@
 - Atlas Cloud responses are normalized across direct and `{ "data": { ... } }` envelope shapes.
 - Local persistence stores image and video generation results per board in local storage.
 - The board editor supports the end-to-end flow: prompt -> image -> video -> history.
+- Generated images and videos render inline in `MediaOutputPanel` and expose direct download links.
 - Atlas client normalization, error handling, and polling behavior are covered by automated tests.
 
 ## PLANNED / BLOCKED

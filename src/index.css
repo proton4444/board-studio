@@ -562,6 +562,11 @@ a {
   white-space: pre-wrap;
 }
 
+.media-tile__download {
+  justify-self: start;
+  text-decoration: none;
+}
+
 .history-item {
   display: grid;
   grid-template-columns: 84px minmax(0, 1fr);
