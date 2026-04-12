@@ -48,6 +48,8 @@ export const generationRecordSchema = z.object({
   prompt: z.string().min(1),
   model: z.string().min(1),
   provider: z.string().min(1),
+  referenceGroupId: z.string().min(1).optional(),
+  referenceImageIds: z.array(z.string().min(1)).optional(),
   status: generationStatusSchema,
   createdAt: timestampSchema,
   completedAt: timestampSchema.optional(),

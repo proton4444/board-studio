@@ -16,16 +16,30 @@ import {
   waitForCompletion,
 } from "../lib/atlascloud";
 import {
+  appendReferenceNamesToPrompt,
+  getOrderedGroupReferenceImages,
+  getOrderedGroupReferenceNames,
+  isDataUrl,
+  selectVideoReferenceImageUrl,
+} from "../lib/multiref";
+import {
   listBoards,
   listGenerationsByBoard,
   loadBoard,
+  loadImageGroups,
   loadReferenceImages,
   saveBoard,
   saveGeneration,
 } from "../lib/storage";
 import { createId, nowIso } from "../lib/utils";
 import type { Board, Card, CardType } from "../schemas/board";
-import type { GenerationRecord, GenerationStatus, MediaItem, ReferenceImage } from "../schemas/media";
+import type {
+  GenerationRecord,
+  GenerationStatus,
+  ImageGroup,
+  MediaItem,
+  ReferenceImage,
+} from "../schemas/media";
 
 type ComposerStatus = GenerationStatus | "idle";
 
@@ -133,6 +147,8 @@ function BoardEditor() {
   const [busyAction, setBusyAction] = useState<"image" | "video" | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
+  const [imageGroups, setImageGroups] = useState<ImageGroup[]>([]);
+  const [selectedReferenceGroupId, setSelectedReferenceGroupId] = useState("");
   const [referenceGalleryRefreshKey, setReferenceGalleryRefreshKey] = useState(0);
   const [groupRefreshKey, setGroupRefreshKey] = useState(0);
 
@@ -180,6 +196,17 @@ function BoardEditor() {
   }
 
   function refreshImageGroups() {
+    if (!boardId) {
+      setImageGroups([]);
+      setSelectedReferenceGroupId("");
+      return;
+    }
+
+    const nextGroups = loadImageGroups(boardId);
+    setImageGroups(nextGroups);
+    setSelectedReferenceGroupId((current) =>
+      current && nextGroups.some((group) => group.id === current) ? current : "",
+    );
     setGroupRefreshKey((current) => current + 1);
   }
 
@@ -294,16 +321,47 @@ function BoardEditor() {
       return;
     }
 
+    const selectedGroup =
+      imageGroups.find((group) => group.id === selectedReferenceGroupId) ?? null;
+
+    if (selectedReferenceGroupId && !selectedGroup) {
+      setErrorMessage("The selected reference group is no longer available. Choose another group.");
+      return;
+    }
+
+    if (selectedGroup && selectedGroup.referenceImageIds.length === 0) {
+      setErrorMessage("The selected reference group is empty. Add at least one image before generating.");
+      return;
+    }
+
+    const referenceImagesById = Object.fromEntries(
+      referenceImages.map((image) => [image.id, image]),
+    ) as Record<string, ReferenceImage | undefined>;
+    const selectedGroupReferenceNames = selectedGroup
+      ? getOrderedGroupReferenceNames(selectedGroup, referenceImagesById)
+      : [];
+
+    if (selectedGroup && selectedGroupReferenceNames.length === 0) {
+      setErrorMessage("The selected reference group no longer has usable images. Rebuild the group and try again.");
+      return;
+    }
+
+    const submissionPrompt = selectedGroup
+      ? appendReferenceNamesToPrompt(promptCard.content.trim(), selectedGroupReferenceNames)
+      : promptCard.content.trim();
+
     setBusyAction("image");
     setErrorMessage(null);
 
     try {
       const initialRecord = await requestGeneration({
         type: "image",
-        prompt: promptCard.content.trim(),
+        prompt: submissionPrompt,
         model: ATLASCLOUD_IMAGE_MODEL,
         boardId: board.id,
         cardId: promptCard.id,
+        referenceGroupId: selectedGroup?.id,
+        referenceImageIds: selectedGroup?.referenceImageIds,
       });
       const finalRecord = await resolveGenerationLifecycle(initialRecord);
 
@@ -315,6 +373,80 @@ function BoardEditor() {
       setErrorMessage(finalRecord.error ?? "Image generation failed.");
     } catch (error) {
       setErrorMessage(extractErrorMessage(error, "Image generation request failed."));
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleGenerateVideoFromGroup() {
+    if (!board || busyAction) {
+      return;
+    }
+
+    const promptCard =
+      board.cards.find((card) => card.id === selectedCardId && card.type === "prompt") ??
+      board.cards.find((card) => card.type === "prompt");
+
+    if (!promptCard || !promptCard.content.trim()) {
+      setErrorMessage("A prompt card with text is required before generation can start.");
+      return;
+    }
+
+    const selectedGroup =
+      imageGroups.find((group) => group.id === selectedReferenceGroupId) ?? null;
+
+    if (!selectedGroup) {
+      setErrorMessage("Select a reference group before generating a video from group references.");
+      return;
+    }
+
+    if (selectedGroup.referenceImageIds.length === 0) {
+      setErrorMessage("The selected reference group is empty. Add at least one image before generating.");
+      return;
+    }
+
+    const referenceImagesById = Object.fromEntries(
+      referenceImages.map((image) => [image.id, image]),
+    ) as Record<string, ReferenceImage | undefined>;
+    const imageUrl = selectVideoReferenceImageUrl(selectedGroup, referenceImagesById);
+
+    if (!imageUrl) {
+      setErrorMessage("The selected reference group no longer has a usable first image. Rebuild the group and try again.");
+      return;
+    }
+
+    if (isDataUrl(imageUrl)) {
+      setErrorMessage(
+        "Atlas Cloud video generation requires a remote hosted image URL, not a local data URL. Use an Atlas Cloud-generated image instead.",
+      );
+      return;
+    }
+
+    setBusyAction("video");
+    setErrorMessage(null);
+
+    try {
+      const initialRecord = await requestGeneration({
+        type: "video",
+        prompt: promptCard.content.trim(),
+        model: ATLASCLOUD_VIDEO_MODEL,
+        boardId: board.id,
+        cardId: promptCard.id,
+        imageUrl,
+        duration: 5,
+        referenceGroupId: selectedGroup.id,
+        referenceImageIds: selectedGroup.referenceImageIds,
+      });
+      const finalRecord = await resolveGenerationLifecycle(initialRecord);
+
+      if (finalRecord.status === "succeeded") {
+        applyGenerationToBoard(finalRecord);
+        return;
+      }
+
+      setErrorMessage(finalRecord.error ?? "Video generation failed.");
+    } catch (error) {
+      setErrorMessage(extractErrorMessage(error, "Video generation request failed."));
     } finally {
       setBusyAction(null);
     }
@@ -378,8 +510,10 @@ function BoardEditor() {
       setBoards([]);
       setRecords([]);
       setReferenceImages([]);
+      setImageGroups([]);
       setSelectedCardId(null);
       setSelectedGenerationId(null);
+      setSelectedReferenceGroupId("");
       setActiveGeneration(null);
       setBusyAction(null);
       return;
@@ -395,6 +529,7 @@ function BoardEditor() {
         null,
     );
     refreshReferenceImages(boardId);
+    refreshImageGroups();
     setActiveGeneration(null);
     setBusyAction(null);
     setErrorMessage(null);
@@ -440,7 +575,19 @@ function BoardEditor() {
   const cardGenerationStateById = buildCardGenerationStateById(records, activeGeneration);
   const promptCardState = promptCard ? cardGenerationStateById[promptCard.id] : undefined;
   const composerStatus: ComposerStatus = promptCardState?.status ?? "idle";
-  const promptErrorMessage = promptCardState?.errorMessage ?? errorMessage;
+  const promptErrorMessage = errorMessage ?? promptCardState?.errorMessage ?? null;
+  const referenceImagesById = Object.fromEntries(
+    referenceImages.map((image) => [image.id, image]),
+  ) as Record<string, ReferenceImage | undefined>;
+  const selectedReferenceGroup =
+    imageGroups.find((group) => group.id === selectedReferenceGroupId) ?? null;
+  const selectedGroupPreviewImages = selectedReferenceGroup
+    ? getOrderedGroupReferenceImages(selectedReferenceGroup, referenceImagesById)
+    : [];
+  const groupNameById = Object.fromEntries(imageGroups.map((group) => [group.id, group.name])) as Record<
+    string,
+    string
+  >;
 
   return (
     <section className="board-editor">
@@ -509,18 +656,24 @@ function BoardEditor() {
             model={ATLASCLOUD_IMAGE_MODEL}
             provider={ATLAS_PROVIDER}
             onSubmit={() => void handleSubmitGeneration()}
+            onSubmitVideoFromGroup={() => void handleGenerateVideoFromGroup()}
             onCreatePromptCard={() => {
               handleAddCard("prompt");
             }}
             hasPromptCard={Boolean(promptCard)}
             status={composerStatus}
             isSubmitting={busyAction === "image"}
+            isSubmittingVideo={busyAction === "video"}
             errorMessage={promptErrorMessage}
+            groups={imageGroups}
+            selectedGroupId={selectedReferenceGroupId}
+            onSelectGroup={setSelectedReferenceGroupId}
+            selectedGroupPreview={selectedGroupPreviewImages}
           />
           <MediaOutputPanel
             record={displayedGeneration}
             isCreatingVideo={busyAction === "video"}
-            panelErrorMessage={displayedGeneration?.error ?? errorMessage}
+            panelErrorMessage={errorMessage ?? displayedGeneration?.error ?? null}
             onMakeVideo={(record, imageUrl) => {
               void handleMakeVideo(record, imageUrl);
             }}
@@ -545,6 +698,7 @@ function BoardEditor() {
               records={records}
               selectedGenerationId={selectedGenerationId}
               onSelect={setSelectedGenerationId}
+              groupNameById={groupNameById}
             />
           </div>
         </div>

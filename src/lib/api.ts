@@ -17,6 +17,8 @@ type BaseGenerationParams = {
   cardId: string;
   model: string;
   provider?: string;
+  referenceGroupId?: string;
+  referenceImageIds?: string[];
 };
 
 type ImageGenerationParams = BaseGenerationParams & {
@@ -42,6 +44,8 @@ type GenerationRecordContext = {
   model: string;
   provider: string;
   mediaType: MediaItem["type"];
+  referenceGroupId?: string;
+  referenceImageIds?: string[];
   createdAt?: string;
 };
 
@@ -86,6 +90,8 @@ export function mergePredictionIntoGenerationRecord(
     prompt: context.prompt,
     model: context.model,
     provider: context.provider,
+    referenceGroupId: context.referenceGroupId,
+    referenceImageIds: context.referenceImageIds,
     status,
     createdAt,
     completedAt,
@@ -101,6 +107,8 @@ function getStoredContext(record: GenerationRecord): GenerationRecordContext {
     prompt: record.prompt,
     model: record.model,
     provider: record.provider,
+    referenceGroupId: record.referenceGroupId,
+    referenceImageIds: record.referenceImageIds,
     mediaType:
       record.output?.[0]?.type && record.output[0].type !== "text"
         ? record.output[0].type
@@ -130,6 +138,8 @@ export async function requestGeneration(
         model: params.model,
         provider,
         mediaType: "image",
+        referenceGroupId: params.referenceGroupId,
+        referenceImageIds: params.referenceImageIds,
       },
       prediction,
     );
@@ -150,6 +160,8 @@ export async function requestGeneration(
       model: params.model,
       provider,
       mediaType: "video",
+      referenceGroupId: params.referenceGroupId,
+      referenceImageIds: params.referenceImageIds,
     },
     prediction,
   );

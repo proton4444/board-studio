@@ -44,6 +44,20 @@ test("generation schema accepts a valid fixture with media items", () => {
   expect(generationRecordSchema.parse(mediaFixture)).toEqual(mediaFixture);
 });
 
+test("generation schema accepts optional reference group metadata", () => {
+  const recordWithGroup = {
+    ...mediaFixture,
+    referenceGroupId: "group_fixture",
+    referenceImageIds: ["reference_fixture", "reference_fixture_alt"],
+  };
+
+  expect(generationRecordSchema.parse(recordWithGroup)).toEqual(recordWithGroup);
+});
+
+test("generation schema remains backward compatible without reference group metadata", () => {
+  expect(generationRecordSchema.parse(mediaFixture)).toEqual(mediaFixture);
+});
+
 const referenceFixture: ReferenceImage = {
   id: "reference_fixture",
   boardId: "board_fixture",

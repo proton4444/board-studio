@@ -1,4 +1,4 @@
-import type { GenerationStatus } from "../schemas/media";
+import type { GenerationStatus, ImageGroup, ReferenceImage } from "../schemas/media";
 
 type PromptBlockProps = {
   promptValue: string;
@@ -6,11 +6,17 @@ type PromptBlockProps = {
   model: string;
   provider: string;
   onSubmit: () => void;
+  onSubmitVideoFromGroup: () => void;
   onCreatePromptCard: () => void;
   hasPromptCard: boolean;
   status: GenerationStatus | "idle";
   isSubmitting: boolean;
+  isSubmittingVideo: boolean;
   errorMessage: string | null;
+  groups: ImageGroup[];
+  selectedGroupId: string;
+  onSelectGroup: (groupId: string) => void;
+  selectedGroupPreview: Array<Pick<ReferenceImage, "id" | "name" | "url">>;
 };
 
 function PromptBlock({
@@ -19,11 +25,17 @@ function PromptBlock({
   model,
   provider,
   onSubmit,
+  onSubmitVideoFromGroup,
   onCreatePromptCard,
   hasPromptCard,
   status,
   isSubmitting,
+  isSubmittingVideo,
   errorMessage,
+  groups,
+  selectedGroupId,
+  onSelectGroup,
+  selectedGroupPreview,
 }: PromptBlockProps) {
   const canSubmit =
     hasPromptCard &&
@@ -31,6 +43,13 @@ function PromptBlock({
     status !== "pending" &&
     status !== "processing" &&
     !isSubmitting;
+  const canSubmitVideoFromGroup =
+    hasPromptCard &&
+    promptValue.trim().length > 0 &&
+    selectedGroupId.length > 0 &&
+    status !== "pending" &&
+    status !== "processing" &&
+    !isSubmittingVideo;
 
   return (
     <section className="panel prompt-block">
@@ -68,14 +87,63 @@ function PromptBlock({
               <input readOnly value={provider} />
             </label>
           </div>
-          <button
-            className="button"
-            disabled={!canSubmit}
-            onClick={onSubmit}
-            type="button"
-          >
-            {isSubmitting ? "Generating..." : "Generate"}
-          </button>
+          <label className="field">
+            <span>Reference group</span>
+            <select
+              onChange={(event) => onSelectGroup(event.target.value)}
+              value={selectedGroupId}
+            >
+              <option value="">None</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="prompt-block__hint">
+            Atlas Cloud image generation does not accept image inputs. When a group is selected, board-studio appends
+            its reference names to the prompt as a best-effort hint.
+          </p>
+          {selectedGroupId ? (
+            selectedGroupPreview.length > 0 ? (
+              <div className="prompt-block__group-preview">
+                {selectedGroupPreview.map((image, index) => (
+                  <article className="prompt-block__group-member" key={image.id}>
+                    <img alt={image.name} src={image.url} />
+                    <div>
+                      <strong>
+                        {index + 1}. {image.name}
+                      </strong>
+                      {index === 0 ? <small>Used as `image_url` for group-based video generation.</small> : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="panel__empty">
+                <p>This group has no available reference previews.</p>
+              </div>
+            )
+          ) : null}
+          <div className="prompt-block__actions">
+            <button
+              className="button"
+              disabled={!canSubmit}
+              onClick={onSubmit}
+              type="button"
+            >
+              {isSubmitting ? "Generating..." : "Generate"}
+            </button>
+            <button
+              className="button button--ghost"
+              disabled={!canSubmitVideoFromGroup}
+              onClick={onSubmitVideoFromGroup}
+              type="button"
+            >
+              {isSubmittingVideo ? "Making video..." : "Generate Video from Group"}
+            </button>
+          </div>
           {errorMessage ? <p className="panel__error">{errorMessage}</p> : null}
         </>
       )}

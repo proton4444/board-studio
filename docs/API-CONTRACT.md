@@ -50,6 +50,13 @@ Response shape:
 
 - Same dual-envelope prediction contract as `generateImage`.
 
+## Multi-reference input
+
+- `generateImage` does not expose any reference-image input fields. In board-studio, selecting an image group only appends a best-effort note to the submitted prompt text in the form `[References: name1, name2, ...]`.
+- `generateVideo` accepts exactly one `image_url`. In board-studio, the group-assisted video flow uses the first member of the selected image group as that `image_url`.
+- True multi-reference generation is blocked until Atlas Cloud exposes provider support for multiple image inputs.
+- Local data URL references cannot be used with `generateVideo`. Atlas Cloud requires a remote hosted URL for `image_url`.
+
 ### `POST /model/uploadMedia`
 
 Request shape:

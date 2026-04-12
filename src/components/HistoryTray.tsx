@@ -5,12 +5,14 @@ type HistoryTrayProps = {
   records: GenerationRecord[];
   selectedGenerationId: string | null;
   onSelect: (generationId: string) => void;
+  groupNameById: Record<string, string>;
 };
 
 function HistoryTray({
   records,
   selectedGenerationId,
   onSelect,
+  groupNameById,
 }: HistoryTrayProps) {
   return (
     <section className="panel history-tray">
@@ -28,6 +30,9 @@ function HistoryTray({
         <div className="history-tray__list">
           {records.map((record) => {
             const preview = record.output?.[0];
+            const groupName = record.referenceGroupId
+              ? groupNameById[record.referenceGroupId] ?? "Unknown group"
+              : null;
 
             return (
               <button
@@ -49,6 +54,7 @@ function HistoryTray({
                     <span className={`status-pill status-pill--${record.status}`}>{record.status}</span>
                   </div>
                   <p>{record.prompt}</p>
+                  {groupName ? <small>{`Group: ${groupName}`}</small> : null}
                   <small>{formatShortDate(record.createdAt)}</small>
                 </div>
               </button>
