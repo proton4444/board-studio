@@ -75,6 +75,21 @@ Response shape:
   - Fallback bridge when the group contains local data URLs or the reference-to-video attempt errors: `bytedance/seedance-2.0-fast/image-to-video` with the first ordered image as `image_url`.
 - Local data URL references still cannot be sent to Atlas multi-ref video directly. If the group falls back to the single-image bridge and the first image is itself a data URL, board-studio blocks the request and surfaces an explicit error.
 
+### Phase E.3
+
+- Board-studio now exposes a structured multi-ref eligibility state in `src/lib/multiref.ts`:
+  - `path: "multi-ref"` when every ordered group image is already a remote URL.
+  - `path: "upload-then-multi-ref"` when one or more ordered group members are local data URLs and the active provider exposes `uploadMedia`.
+  - `path: "bridge"` when local data URLs are present, upload is unavailable, and the first ordered image is still remote enough to drive the single-image bridge.
+  - `path: "unavailable"` when the group has no usable references or the first ordered image is a local data URL with no upload path.
+- The capability state may also include:
+  - `reason?: string` for UI messaging and hover text.
+  - `dataUrlImageIds?: string[]` listing the ordered group members that are still local data URLs.
+- For Atlas Cloud group video generation, board-studio now attempts `uploadMedia` on any local data URL members before deciding the execution path:
+  - If every ordered image resolves to a remote URL after upload, the app uses the confirmed Atlas true multi-ref path: `bytedance/seedance-2.0/reference-to-video` with `reference_images`.
+  - If one or more uploads fail, the app preserves the existing fallback ordering and uses the resolved first image for the bridge path when possible.
+  - If the resolved first image is still a data URL, the bridge path remains blocked and the existing explicit error is surfaced.
+
 ## Phase E.2 research log
 
 What was tried:

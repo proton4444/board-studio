@@ -1,7 +1,9 @@
 import {
   appendReferenceNamesToPrompt,
+  getMultiRefVideoCapabilityState,
   getOrderedGroupReferenceNames,
   isMultiRefVideoCapable,
+  type MultiRefVideoCapabilityState,
   selectVideoReferenceImageUrl,
 } from "../src/lib/multiref";
 import type { ImageGroup, ReferenceImage } from "../src/schemas/media";
@@ -97,4 +99,122 @@ test("isMultiRefVideoCapable returns false for an empty group", () => {
       referenceImagesById,
     ),
   ).toBe(false);
+});
+
+function expectCapabilityState(
+  actual: MultiRefVideoCapabilityState,
+  expected: Partial<MultiRefVideoCapabilityState>,
+) {
+  expect(actual).toMatchObject(expected);
+}
+
+test("getMultiRefVideoCapabilityState returns multi-ref for all-remote groups when upload is available", () => {
+  const state = getMultiRefVideoCapabilityState(imageGroupFixture, referenceImagesById, true);
+
+  expectCapabilityState(state, { path: "multi-ref" });
+  expect(state.reason).toBeUndefined();
+});
+
+test("getMultiRefVideoCapabilityState returns multi-ref for all-remote groups without upload capability", () => {
+  const state = getMultiRefVideoCapabilityState(imageGroupFixture, referenceImagesById, false);
+
+  expectCapabilityState(state, { path: "multi-ref" });
+});
+
+test("getMultiRefVideoCapabilityState returns upload-then-multi-ref when local data URLs can be uploaded", () => {
+  const state = getMultiRefVideoCapabilityState(
+    imageGroupFixture,
+    {
+      ...referenceImagesById,
+      reference_a: {
+        ...referenceImagesById.reference_a,
+        url: "data:image/png;base64,abc123",
+      },
+    },
+    true,
+  );
+
+  expectCapabilityState(state, {
+    path: "upload-then-multi-ref",
+    dataUrlImageIds: ["reference_a"],
+  });
+  expect(state.reason).toContain("1 image(s)");
+});
+
+test("getMultiRefVideoCapabilityState returns bridge when local data URLs exist and the first image is remote", () => {
+  const state = getMultiRefVideoCapabilityState(
+    imageGroupFixture,
+    {
+      ...referenceImagesById,
+      reference_a: {
+        ...referenceImagesById.reference_a,
+        url: "data:image/png;base64,abc123",
+      },
+    },
+    false,
+  );
+
+  expectCapabilityState(state, {
+    path: "bridge",
+    dataUrlImageIds: ["reference_a"],
+  });
+  expect(state.reason).toBeDefined();
+});
+
+test("getMultiRefVideoCapabilityState returns unavailable when all references are local data URLs and upload is unavailable", () => {
+  const state = getMultiRefVideoCapabilityState(
+    imageGroupFixture,
+    {
+      ...referenceImagesById,
+      reference_a: {
+        ...referenceImagesById.reference_a,
+        url: "data:image/png;base64,abc123",
+      },
+      reference_b: {
+        ...referenceImagesById.reference_b,
+        url: "data:image/png;base64,xyz789",
+      },
+    },
+    false,
+  );
+
+  expectCapabilityState(state, {
+    path: "unavailable",
+    dataUrlImageIds: ["reference_b", "reference_a"],
+  });
+  expect(state.reason).toBeDefined();
+});
+
+test("getMultiRefVideoCapabilityState returns unavailable for an empty group", () => {
+  const state = getMultiRefVideoCapabilityState(
+    {
+      ...imageGroupFixture,
+      referenceImageIds: [],
+    },
+    referenceImagesById,
+    false,
+  );
+
+  expectCapabilityState(state, { path: "unavailable" });
+  expect(state.reason).toBeDefined();
+});
+
+test("getMultiRefVideoCapabilityState returns unavailable when the first image is a local data URL and upload is unavailable", () => {
+  const state = getMultiRefVideoCapabilityState(
+    imageGroupFixture,
+    {
+      ...referenceImagesById,
+      reference_b: {
+        ...referenceImagesById.reference_b,
+        url: "data:image/png;base64,abc123",
+      },
+    },
+    false,
+  );
+
+  expectCapabilityState(state, {
+    path: "unavailable",
+    dataUrlImageIds: ["reference_b"],
+  });
+  expect(state.reason).toBeDefined();
 });

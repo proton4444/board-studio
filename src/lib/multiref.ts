@@ -1,6 +1,21 @@
 import type { ImageGroup, ReferenceImage } from "../schemas/media";
 
-type ReferenceImageLookup = Record<string, Pick<ReferenceImage, "id" | "name" | "url"> | undefined>;
+export type ReferenceImageLookup = Record<
+  string,
+  Pick<ReferenceImage, "id" | "name" | "url"> | undefined
+>;
+
+export type MultiRefVideoPath =
+  | "multi-ref"
+  | "upload-then-multi-ref"
+  | "bridge"
+  | "unavailable";
+
+export type MultiRefVideoCapabilityState = {
+  path: MultiRefVideoPath;
+  reason?: string;
+  dataUrlImageIds?: string[];
+};
 
 export function appendReferenceNamesToPrompt(prompt: string, referenceNames: string[]): string {
   const trimmedNames = referenceNames.map((name) => name.trim()).filter((name) => name.length > 0);
@@ -42,6 +57,51 @@ export function isDataUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function getMultiRefVideoCapabilityState(
+  group: Pick<ImageGroup, "referenceImageIds">,
+  referenceImagesById: ReferenceImageLookup,
+  hasUploadCapability: boolean,
+): MultiRefVideoCapabilityState {
+  const orderedImages = getOrderedGroupReferenceImages(group, referenceImagesById);
+
+  if (orderedImages.length === 0) {
+    return {
+      path: "unavailable",
+      reason: "Group has no reference images.",
+    };
+  }
+
+  const dataUrlImages = orderedImages.filter((image) => isDataUrl(image.url));
+
+  if (dataUrlImages.length === 0) {
+    return { path: "multi-ref" };
+  }
+
+  if (hasUploadCapability) {
+    return {
+      path: "upload-then-multi-ref",
+      reason: `${dataUrlImages.length} image(s) will be uploaded to Atlas before generation.`,
+      dataUrlImageIds: dataUrlImages.map((image) => image.id),
+    };
+  }
+
+  const firstImage = orderedImages[0];
+
+  if (!isDataUrl(firstImage.url)) {
+    return {
+      path: "bridge",
+      reason: `${dataUrlImages.length} reference(s) are local data URLs; falling back to first image only.`,
+      dataUrlImageIds: dataUrlImages.map((image) => image.id),
+    };
+  }
+
+  return {
+    path: "unavailable",
+    reason: "The first reference image is a local data URL. Upload to Atlas or use a hosted URL.",
+    dataUrlImageIds: dataUrlImages.map((image) => image.id),
+  };
 }
 
 export function isMultiRefVideoCapable(

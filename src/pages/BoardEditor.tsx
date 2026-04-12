@@ -20,13 +20,15 @@ import {
   waitForGeneration,
 } from "../lib/api";
 import { getProvider, type BalanceFetchState } from "../lib/provider";
-import { LOW_BALANCE_THRESHOLD } from "../lib/providers/atlasCloudProvider";
+import atlasCloudProvider, { LOW_BALANCE_THRESHOLD } from "../lib/providers/atlasCloudProvider";
 import {
   appendReferenceNamesToPrompt,
+  getMultiRefVideoCapabilityState,
   getOrderedGroupReferenceImages,
   getOrderedGroupReferenceNames,
   isDataUrl,
   isMultiRefVideoCapable,
+  type MultiRefVideoCapabilityState,
   selectVideoReferenceImageUrl,
 } from "../lib/multiref";
 import {
@@ -648,6 +650,27 @@ function BoardEditor() {
       );
     }
 
+    let resolvedImages = orderedImages;
+    const provider = getProvider(ATLAS_PROVIDER);
+
+    if (provider.uploadMedia) {
+      resolvedImages = await Promise.all(
+        orderedImages.map(async (image) => {
+          if (!isDataUrl(image.url)) {
+            return image;
+          }
+
+          try {
+            const remoteUrl = await provider.uploadMedia!(image.url);
+            return { ...image, url: remoteUrl };
+          } catch {
+            return image;
+          }
+        }),
+      );
+    }
+
+    const bridgeImageUrl = resolvedImages[0]?.url ?? imageUrl;
     const buildBridgeRequest = () =>
       requestGeneration({
         type: "video",
@@ -655,13 +678,13 @@ function BoardEditor() {
         model: ATLASCLOUD_VIDEO_MODEL,
         boardId: activeBoardId,
         cardId,
-        imageUrl,
+        imageUrl: bridgeImageUrl,
         duration: durationValue,
         referenceGroupId: selectedGroup.id,
         referenceImageIds: selectedGroup.referenceImageIds,
       });
     const runBridgeGeneration = async () => {
-      if (isDataUrl(imageUrl)) {
+      if (isDataUrl(bridgeImageUrl)) {
         throw new Error(
           "Atlas Cloud group video generation fell back to the single-image bridge because this group includes local data URLs, but the first reference is itself a data URL. Use Atlas Cloud-hosted image URLs instead.",
         );
@@ -670,7 +693,9 @@ function BoardEditor() {
       return resolveGenerationLifecycle(await buildBridgeRequest());
     };
 
-    const canUseMultiRefVideo = isMultiRefVideoCapable(selectedGroup, referenceImagesById);
+    const canUseMultiRefVideo =
+      resolvedImages.length > 0 &&
+      resolvedImages.every((image) => !isDataUrl(image.url));
 
     if (!canUseMultiRefVideo) {
       return runBridgeGeneration();
@@ -683,7 +708,7 @@ function BoardEditor() {
         model: ATLASCLOUD_REF_VIDEO_MODEL,
         boardId: activeBoardId,
         cardId,
-        referenceImageUrls: orderedImages.map((image) => image.url),
+        referenceImageUrls: resolvedImages.map((image) => image.url),
         duration: durationValue,
         referenceGroupId: selectedGroup.id,
         referenceImageIds: selectedGroup.referenceImageIds,
@@ -936,6 +961,13 @@ function BoardEditor() {
   const selectedGroupPreviewImages = selectedReferenceGroup
     ? getOrderedGroupReferenceImages(selectedReferenceGroup, referenceImagesById)
     : [];
+  const videoGroupCapabilityState: MultiRefVideoCapabilityState | null = selectedReferenceGroup
+    ? getMultiRefVideoCapabilityState(
+        selectedReferenceGroup,
+        referenceImagesById,
+        atlasCloudProvider.capabilities.uploadMedia,
+      )
+    : null;
   const groupNameById = Object.fromEntries(imageGroups.map((group) => [group.id, group.name])) as Record<
     string,
     string
@@ -1025,6 +1057,7 @@ function BoardEditor() {
             provider={ATLAS_PROVIDER}
             onSubmit={() => void handleSubmitGeneration()}
             onSubmitVideoFromGroup={() => void handleGenerateVideoFromGroup()}
+            videoGroupCapabilityState={videoGroupCapabilityState}
             onCreatePromptCard={() => {
               handleAddCard("prompt");
             }}

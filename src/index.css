@@ -865,6 +865,35 @@ a {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.prompt-block__video-cap-hint {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  grid-column: 2;
+  justify-self: start;
+}
+
+.prompt-block__video-cap-hint--multi-ref {
+  background: var(--color-success-bg, #d4edda);
+  color: var(--color-success-text, #155724);
+}
+
+.prompt-block__video-cap-hint--upload-then-multi-ref {
+  background: var(--color-warn-bg, #fff3cd);
+  color: var(--color-warn-text, #856404);
+}
+
+.prompt-block__video-cap-hint--bridge {
+  background: var(--color-neutral-bg, #e9ecef);
+  color: var(--color-neutral-text, #495057);
+}
+
+.prompt-block__video-cap-hint--unavailable {
+  background: var(--color-error-bg, #f8d7da);
+  color: var(--color-error-text, #721c24);
+}
+
 .prompt-block__group-member {
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);

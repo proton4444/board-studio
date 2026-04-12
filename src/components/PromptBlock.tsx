@@ -1,4 +1,5 @@
 import { humaniseModelId } from "../lib/utils";
+import type { MultiRefVideoCapabilityState } from "../lib/multiref";
 import type { GenerationStatus, ImageGroup, ReferenceImage } from "../schemas/media";
 
 type PromptBlockProps = {
@@ -8,6 +9,7 @@ type PromptBlockProps = {
   provider: string;
   onSubmit: () => void;
   onSubmitVideoFromGroup: () => void;
+  videoGroupCapabilityState?: MultiRefVideoCapabilityState | null;
   onCreatePromptCard: () => void;
   hasPromptCard: boolean;
   status: GenerationStatus | "idle";
@@ -40,6 +42,7 @@ function PromptBlock({
   provider,
   onSubmit,
   onSubmitVideoFromGroup,
+  videoGroupCapabilityState,
   onCreatePromptCard,
   hasPromptCard,
   status,
@@ -258,6 +261,18 @@ function PromptBlock({
             >
               {isSubmittingVideo ? "Making video..." : "Video from Group"}
             </button>
+            {videoGroupCapabilityState && selectedGroupId.length > 0 ? (
+              <span
+                className={`prompt-block__video-cap-hint prompt-block__video-cap-hint--${videoGroupCapabilityState.path}`}
+                title={videoGroupCapabilityState.reason}
+              >
+                {videoGroupCapabilityState.path === "multi-ref" && "True multi-ref"}
+                {videoGroupCapabilityState.path === "upload-then-multi-ref" &&
+                  "Upload + multi-ref"}
+                {videoGroupCapabilityState.path === "bridge" && "Bridge (first image)"}
+                {videoGroupCapabilityState.path === "unavailable" && "Video unavailable"}
+              </span>
+            ) : null}
           </div>
           {errorMessage ? <p className="panel__error">{errorMessage}</p> : null}
         </>

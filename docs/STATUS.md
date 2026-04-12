@@ -27,6 +27,7 @@
 - Shot script assistant: per-board structured script with ordered shots (act/scene/prompt/group/duration/notes). Per-shot and bulk sequential generation. Script export as JSON.
 - Backend proxy: API key moved server-side. Frontend calls `/api/atlas/*` on the local proxy (Express). Vite dev server proxies `/api` to `:3001`. Production: Express serves static build + Atlas proxy routes. `VITE_ATLASCLOUD_API_KEY` removed from browser env.
 - Phase E.2 true multi-reference provider path: board-level group video generation prefers confirmed Atlas `bytedance/seedance-2.0/reference-to-video` with ordered `reference_images` when every group image is a remote URL. If the contract path errors, the app falls back to the existing first-image Atlas bridge.
+- Phase E.3 multi-ref eligibility: structured capability state, auto-upload path for data URL members (requires Atlas `uploadMedia`), UI hint shows which path will be used before submission.
 
 ## PLANNED / BLOCKED
 
