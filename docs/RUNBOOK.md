@@ -30,6 +30,30 @@ ATLASCLOUD_API_KEY=your_key npm start
 
 Open http://localhost:3001 (or the configured PORT).
 
+## Container deployment (Docker)
+
+### Build the image
+```bash
+docker build -t board-studio .
+# or: npm run docker:build
+```
+
+### Run the container
+```bash
+docker run -e ATLASCLOUD_API_KEY=your_key -p 3001:3001 board-studio
+```
+Open http://localhost:3001.
+
+### Optional overrides
+```bash
+docker run \
+  -e ATLASCLOUD_API_KEY=your_key \
+  -e ATLASCLOUD_BASE_URL=https://api.atlascloud.ai/api/v1 \
+  -e PORT=3001 \
+  -p 3001:3001 \
+  board-studio
+```
+
 ## Environment variables
 
 ### Backend (proxy server — never exposed to the browser)
@@ -87,6 +111,21 @@ curl http://localhost:3001/api/health
 1. Stop the proxy server.
 2. Click **Generate** — expect a clear error message in the UI, not a silent hang.
 3. Restart the proxy.
+
+## Pre-deploy checklist
+
+Before going live with a new deployment:
+
+- [ ] `npm test` passes with no failures
+- [ ] `npm run build` succeeds with no TypeScript errors
+- [ ] `ATLASCLOUD_API_KEY` is set in the target environment (not in source code)
+- [ ] `ATLASCLOUD_API_KEY` does not appear in any `VITE_*` variable
+- [ ] `/api/health` returns `{"ok":true,"apiKeySet":true,...}` on the target host
+- [ ] Image generation smoke test passes (see smoke-test checklist above)
+- [ ] Video generation smoke test passes
+- [ ] Balance display shows a value (or "unavailable" gracefully)
+- [ ] SPA routing works: navigate to a board URL directly and the app loads
+- [ ] Proxy logs contain no API key values
 
 ## Running tests
 

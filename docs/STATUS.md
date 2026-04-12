@@ -29,6 +29,7 @@
 - Phase E.2 true multi-reference provider path: board-level group video generation prefers confirmed Atlas `bytedance/seedance-2.0/reference-to-video` with ordered `reference_images` when every group image is a remote URL. If the contract path errors, the app falls back to the existing first-image Atlas bridge.
 - Phase E.3 multi-ref eligibility: structured capability state, auto-upload path for data URL members (requires Atlas `uploadMedia`), UI hint shows which path will be used before submission.
 - Phase F.1 production hardening: proxy startup fails fast on missing `ATLASCLOUD_API_KEY` (`process.exit(1)`); consistent error envelopes with no secret leakage; 2 MB request body limit; prediction ID validation against path traversal; 120 s upstream fetch timeout with 504 on abort; `server/env.ts` extracted as a testable pure function; `RUNBOOK.md` rewritten to reflect post-E.1 two-terminal dev workflow, production run, and smoke-test checklist.
+- Phase F.2 deployment: `createApp` factory extracted to `server/app.ts` for testability; server route integration tests (health, prediction ID validation, body size limit) pass without a real Atlas key; Dockerfile added for containerized deployment; `.dockerignore` prevents secrets from entering the image; `npm run preview` convenience script added; `RUNBOOK` updated with Docker deployment steps and pre-deploy checklist.
 
 ## PLANNED / BLOCKED
 
