@@ -5,10 +5,12 @@ import {
   generateVideo,
   pollPrediction,
   uploadMedia,
+  validateAtlasCloudEnv,
   waitForCompletion,
   type PredictionResult,
 } from "../atlascloud";
 import {
+  type BalanceInfo,
   type GenerationProvider,
   type ModelCapabilityProfile,
   type ProviderCapabilities,
@@ -20,6 +22,7 @@ import {
 } from "../provider";
 
 export const ATLAS_CLOUD_PROVIDER_ID = "atlas-cloud" as const;
+export const LOW_BALANCE_THRESHOLD = 100;
 
 const atlasCapabilities: ProviderCapabilities = {
   imageGeneration: true,
@@ -35,6 +38,47 @@ const atlasCapabilities: ProviderCapabilities = {
 
 function toProviderPollResult(result: PredictionResult): ProviderPollResult {
   return result;
+}
+
+export function normalizeBalanceResponse(raw: unknown): BalanceInfo | null {
+  const isRec = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null;
+  const payload =
+    isRec(raw) && isRec((raw as Record<string, unknown>).data)
+      ? ((raw as Record<string, unknown>).data as Record<string, unknown>)
+      : isRec(raw)
+        ? (raw as Record<string, unknown>)
+        : null;
+
+  if (!payload) {
+    return null;
+  }
+
+  const amount =
+    typeof payload.balance === "number"
+      ? payload.balance
+      : typeof payload.credits === "number"
+        ? payload.credits
+        : typeof payload.available === "number"
+          ? payload.available
+          : typeof payload.available_credits === "number"
+            ? payload.available_credits
+            : typeof payload.remaining === "number"
+              ? payload.remaining
+              : null;
+
+  if (amount === null) {
+    return null;
+  }
+
+  const unit =
+    typeof payload.unit === "string"
+      ? payload.unit
+      : typeof payload.currency === "string"
+        ? payload.currency
+        : "credits";
+
+  return { available: amount, unit, raw: payload };
 }
 
 const atlasImageModelProfile: ModelCapabilityProfile = {
@@ -94,6 +138,26 @@ export const atlasCloudProvider: GenerationProvider = {
   },
   async uploadMedia(imageUrl: string): Promise<string> {
     return uploadMedia(imageUrl);
+  },
+  async getBalance(): Promise<BalanceInfo | null> {
+    try {
+      const { baseUrl, apiKey } = validateAtlasCloudEnv();
+      const response = await fetch(`${baseUrl}/account/balance`, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const raw = (await response.json()) as unknown;
+      return normalizeBalanceResponse(raw);
+    } catch {
+      return null;
+    }
   },
   async poll(id: string): Promise<ProviderPollResult> {
     return toProviderPollResult(await pollPrediction(id));

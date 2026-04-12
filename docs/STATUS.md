@@ -22,6 +22,7 @@
 - Atlas client normalization, error handling, and polling behavior are covered by automated tests.
 - Collage editor modal: compose N reference images into a grid PNG, saved as a new reference image. Trigger in gallery panel.
 - Provider abstraction layer: `GenerationProvider` interface, Atlas Cloud concrete implementation, capability metadata, model profiles. Atlas is the only registered provider.
+- Balance visibility: Sidebar polls the active provider's balance endpoint on board load. Atlas Cloud implementation degrades gracefully when the endpoint is unavailable. Low-balance warning surfaced in Sidebar and PromptBlock.
 
 ## PLANNED / BLOCKED
 

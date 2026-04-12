@@ -17,6 +17,8 @@ import {
   requestGeneration,
   waitForGeneration,
 } from "../lib/api";
+import { getProvider, type BalanceFetchState } from "../lib/provider";
+import { LOW_BALANCE_THRESHOLD } from "../lib/providers/atlasCloudProvider";
 import {
   appendReferenceNamesToPrompt,
   getOrderedGroupReferenceImages,
@@ -149,6 +151,9 @@ function BoardEditor() {
   const [activeGeneration, setActiveGeneration] = useState<ActiveGeneration>(null);
   const [busyAction, setBusyAction] = useState<"image" | "video" | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [balanceFetchState, setBalanceFetchState] = useState<BalanceFetchState>({
+    status: "idle",
+  });
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [imageGroups, setImageGroups] = useState<ImageGroup[]>([]);
   const [selectedReferenceGroupId, setSelectedReferenceGroupId] = useState("");
@@ -163,6 +168,38 @@ function BoardEditor() {
 
   function refreshBoards() {
     setBoards(listBoards().map(({ id, name }) => ({ id, name })));
+  }
+
+  async function fetchBalance() {
+    const provider = getProvider(ATLAS_PROVIDER);
+
+    if (!provider.getBalance) {
+      setBalanceFetchState({
+        status: "unavailable",
+        reason: "Provider does not support balance queries.",
+      });
+      return;
+    }
+
+    setBalanceFetchState({ status: "loading" });
+
+    try {
+      const balance = await provider.getBalance();
+
+      if (balance) {
+        setBalanceFetchState({ status: "loaded", balance });
+      } else {
+        setBalanceFetchState({
+          status: "unavailable",
+          reason: "Balance endpoint returned no data.",
+        });
+      }
+    } catch {
+      setBalanceFetchState({
+        status: "unavailable",
+        reason: "Balance fetch failed.",
+      });
+    }
   }
 
   function refreshGenerations(nextSelectedId?: string | null) {
@@ -570,6 +607,7 @@ function BoardEditor() {
       setBoard(null);
       setBoards([]);
       setRecords([]);
+      setBalanceFetchState({ status: "idle" });
       setReferenceImages([]);
       setImageGroups([]);
       setSelectedCardId(null);
@@ -599,6 +637,7 @@ function BoardEditor() {
     setLastSelectedImageUrl(null);
     setShowCollageEditor(false);
     refreshReferenceGallery();
+    void fetchBalance();
   }, [boardId]);
 
   useEffect(() => {
@@ -644,7 +683,12 @@ function BoardEditor() {
   const cardGenerationStateById = buildCardGenerationStateById(records, activeGeneration);
   const promptCardState = promptCard ? cardGenerationStateById[promptCard.id] : undefined;
   const composerStatus: ComposerStatus = promptCardState?.status ?? "idle";
-  const promptErrorMessage = errorMessage ?? promptCardState?.errorMessage ?? null;
+  const lowBalanceWarning =
+    balanceFetchState.status === "loaded" &&
+    balanceFetchState.balance.available < LOW_BALANCE_THRESHOLD
+      ? `Low balance (${balanceFetchState.balance.available} ${balanceFetchState.balance.unit}) — add credits before continuing.`
+      : null;
+  const promptErrorMessage = errorMessage ?? lowBalanceWarning ?? promptCardState?.errorMessage ?? null;
   const referenceImagesById = Object.fromEntries(
     referenceImages.map((image) => [image.id, image]),
   ) as Record<string, ReferenceImage | undefined>;
@@ -682,6 +726,8 @@ function BoardEditor() {
         onSelectCard={setSelectedCardId}
         onAddCard={handleAddCard}
         onExportBoard={handleExportBoard}
+        balanceFetchState={balanceFetchState}
+        onRefreshBalance={() => void fetchBalance()}
       />
 
       <div className="board-editor__main">

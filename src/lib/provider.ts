@@ -19,6 +19,18 @@ export type ProviderVideoParams = {
 
 export type ProviderPollResult = PredictionResult;
 
+export type BalanceInfo = {
+  available: number;
+  unit: string;
+  raw: unknown;
+};
+
+export type BalanceFetchState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "loaded"; balance: BalanceInfo }
+  | { status: "unavailable"; reason: string };
+
 export type ProviderCapabilities = {
   imageGeneration: boolean;
   videoGeneration: boolean;
@@ -52,6 +64,7 @@ export interface GenerationProvider {
   generateImage(params: ProviderImageParams): Promise<ProviderPollResult>;
   generateVideo(params: ProviderVideoParams): Promise<ProviderPollResult>;
   uploadMedia?(imageUrl: string): Promise<string>;
+  getBalance?(): Promise<BalanceInfo | null>;
   poll(id: string): Promise<ProviderPollResult>;
   waitForCompletion(
     id: string,
