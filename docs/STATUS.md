@@ -23,6 +23,7 @@
 - Collage editor modal: compose N reference images into a grid PNG, saved as a new reference image. Trigger in gallery panel.
 - Provider abstraction layer: `GenerationProvider` interface, Atlas Cloud concrete implementation, capability metadata, model profiles. Atlas is the only registered provider.
 - Balance visibility: Sidebar polls the active provider's balance endpoint on board load. Atlas Cloud implementation degrades gracefully when the endpoint is unavailable. Low-balance warning surfaced in Sidebar and PromptBlock.
+- Shot script assistant: per-board structured script with ordered shots (act/scene/prompt/group/duration/notes). Per-shot and bulk sequential generation. Script export as JSON.
 
 ## PLANNED / BLOCKED
 

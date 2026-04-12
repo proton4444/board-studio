@@ -9,11 +9,13 @@ import {
   type ReferenceImage,
   type GenerationRecord,
 } from "../schemas/media";
+import { scriptSchema, type Script } from "../schemas/script";
 
 const BOARD_PREFIX = "board:";
 const GENERATION_PREFIX = "generation:";
 const REFERENCE_IMAGE_PREFIX = "reference-image:";
 const IMAGE_GROUP_PREFIX = "image-group:";
+const SCRIPT_PREFIX = "script:";
 
 function getStorage(): Storage {
   if (!("localStorage" in globalThis)) {
@@ -179,4 +181,21 @@ export function updateImageGroup(
 
 export function deleteImageGroup(id: string): void {
   getStorage().removeItem(`${IMAGE_GROUP_PREFIX}${id}`);
+}
+
+export function saveScript(script: Script): void {
+  const safeScript = scriptSchema.parse(script);
+  getStorage().setItem(`${SCRIPT_PREFIX}${safeScript.id}`, JSON.stringify(safeScript));
+}
+
+export function loadScript(boardId: string): Script | null {
+  return (
+    collectByPrefix(SCRIPT_PREFIX, scriptSchema)
+      .filter((script) => script.boardId === boardId)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] ?? null
+  );
+}
+
+export function deleteScript(id: string): void {
+  getStorage().removeItem(`${SCRIPT_PREFIX}${id}`);
 }

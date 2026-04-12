@@ -7,6 +7,7 @@ import ImageGroupPanel from "../components/ImageGroupPanel";
 import MediaOutputPanel from "../components/MediaOutputPanel";
 import PromptBlock from "../components/PromptBlock";
 import ReferenceGalleryPanel from "../components/ReferenceGalleryPanel";
+import ScriptPanel from "../components/ScriptPanel";
 import ReferenceUploadPanel from "../components/ReferenceUploadPanel";
 import Sidebar from "../components/Sidebar";
 import {
@@ -33,8 +34,10 @@ import {
   loadBoard,
   loadImageGroups,
   loadReferenceImages,
+  loadScript,
   saveBoard,
   saveGeneration,
+  saveScript,
 } from "../lib/storage";
 import { createId, nowIso } from "../lib/utils";
 import type { Board, Card, CardType } from "../schemas/board";
@@ -45,6 +48,7 @@ import type {
   MediaItem,
   ReferenceImage,
 } from "../schemas/media";
+import type { Script, Shot } from "../schemas/script";
 
 type ComposerStatus = GenerationStatus | "idle";
 
@@ -164,7 +168,13 @@ function BoardEditor() {
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [numOutputs, setNumOutputs] = useState(1);
   const [duration, setDuration] = useState(5);
+  const [script, setScript] = useState<Script | null>(null);
+  const [shotGenerationStatus, setShotGenerationStatus] = useState<
+    Record<string, "pending" | "running" | "done" | "failed">
+  >({});
+  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   const exportLinkRef = useRef<HTMLAnchorElement | null>(null);
+  const exportScriptLinkRef = useRef<HTMLAnchorElement | null>(null);
 
   function refreshBoards() {
     setBoards(listBoards().map(({ id, name }) => ({ id, name })));
@@ -350,6 +360,132 @@ function BoardEditor() {
       return failedRecord;
     } finally {
       setActiveGeneration(null);
+    }
+  }
+
+  async function handleGenerateShot(shot: Shot): Promise<string | null> {
+    if (!board) {
+      return null;
+    }
+
+    const promptCard =
+      board.cards.find((card) => card.id === selectedCardId && card.type === "prompt") ??
+      board.cards.find((card) => card.type === "prompt");
+
+    if (!promptCard) {
+      setErrorMessage("A prompt card is required before shot generation can start.");
+      setShotGenerationStatus((current) => ({ ...current, [shot.id]: "failed" }));
+      return null;
+    }
+
+    if (!shot.prompt.trim()) {
+      setShotGenerationStatus((current) => ({ ...current, [shot.id]: "failed" }));
+      return null;
+    }
+
+    const selectedGroup =
+      shot.referenceGroupId
+        ? imageGroups.find((group) => group.id === shot.referenceGroupId) ?? null
+        : null;
+    const referenceImagesById = Object.fromEntries(
+      referenceImages.map((image) => [image.id, image]),
+    ) as Record<string, ReferenceImage | undefined>;
+    const referenceImageUrl = selectedGroup
+      ? selectVideoReferenceImageUrl(selectedGroup, referenceImagesById)
+      : undefined;
+    const canGenerateVideo = Boolean(
+      selectedGroup &&
+        referenceImageUrl &&
+        !isDataUrl(referenceImageUrl),
+    );
+
+    setShotGenerationStatus((current) => ({ ...current, [shot.id]: "running" }));
+
+    try {
+      const initialRecord = canGenerateVideo
+        ? await requestGeneration({
+            type: "video",
+            boardId: board.id,
+            cardId: promptCard.id,
+            prompt: shot.prompt,
+            model: ATLASCLOUD_VIDEO_MODEL,
+            imageUrl: referenceImageUrl!,
+            duration: shot.duration ?? duration,
+            referenceGroupId: selectedGroup?.id,
+            referenceImageIds: selectedGroup?.referenceImageIds,
+          })
+        : await requestGeneration({
+            type: "image",
+            boardId: board.id,
+            cardId: promptCard.id,
+            prompt: shot.prompt,
+            model: ATLASCLOUD_IMAGE_MODEL,
+            referenceGroupId: selectedGroup?.id,
+            referenceImageIds: selectedGroup?.referenceImageIds,
+            aspect_ratio: aspectRatio,
+            num_outputs: 1,
+          });
+      const finalRecord = await resolveGenerationLifecycle(initialRecord);
+
+      if (finalRecord.status === "succeeded") {
+        setScript((current) =>
+          current
+            ? {
+                ...current,
+                shots: current.shots.map((currentShot) =>
+                  currentShot.id === shot.id
+                    ? {
+                        ...currentShot,
+                        outputGenerationId: finalRecord.id,
+                        updatedAt: nowIso(),
+                      }
+                    : currentShot,
+                ),
+                updatedAt: nowIso(),
+              }
+            : current,
+        );
+        setShotGenerationStatus((current) => ({ ...current, [shot.id]: "done" }));
+        return finalRecord.id;
+      }
+
+      setShotGenerationStatus((current) => ({ ...current, [shot.id]: "failed" }));
+      return null;
+    } catch {
+      setShotGenerationStatus((current) => ({ ...current, [shot.id]: "failed" }));
+      return null;
+    }
+  }
+
+  async function handleGenerateAllShots() {
+    const shotsToGenerate =
+      script?.shots
+        .filter((currentShot) => currentShot.prompt.trim().length > 0)
+        .sort((left, right) => left.order - right.order) ?? [];
+
+    if (shotsToGenerate.length === 0 || isBulkGenerating) {
+      return;
+    }
+
+    setIsBulkGenerating(true);
+
+    const initialStatus: Record<string, "pending" | "running" | "done" | "failed"> = {};
+    shotsToGenerate.forEach((currentShot) => {
+      initialStatus[currentShot.id] = "pending";
+    });
+    setShotGenerationStatus(initialStatus);
+
+    try {
+      for (const currentShot of shotsToGenerate) {
+        setShotGenerationStatus((current) => ({ ...current, [currentShot.id]: "running" }));
+        const resultId = await handleGenerateShot(currentShot).catch(() => null);
+        setShotGenerationStatus((current) => ({
+          ...current,
+          [currentShot.id]: resultId ? "done" : "failed",
+        }));
+      }
+    } finally {
+      setIsBulkGenerating(false);
     }
   }
 
@@ -602,6 +738,27 @@ function BoardEditor() {
     }, 0);
   }
 
+  function handleExportScript() {
+    if (!script) {
+      return;
+    }
+
+    const json = JSON.stringify(script, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const filename = `script-${script.name.replace(/\s+/g, "-").toLowerCase()}-export.json`;
+
+    if (exportScriptLinkRef.current) {
+      exportScriptLinkRef.current.href = url;
+      exportScriptLinkRef.current.download = filename;
+      exportScriptLinkRef.current.click();
+    }
+
+    globalThis.setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 0);
+  }
+
   useEffect(() => {
     if (!boardId) {
       setBoard(null);
@@ -617,11 +774,17 @@ function BoardEditor() {
       setActiveGeneration(null);
       setBusyAction(null);
       setShowCollageEditor(false);
+      setScript(null);
+      setShotGenerationStatus({});
+      setIsBulkGenerating(false);
       return;
     }
 
     const loadedBoard = loadBoard(boardId);
     setBoard(loadedBoard);
+    setScript(loadScript(boardId));
+    setShotGenerationStatus({});
+    setIsBulkGenerating(false);
     refreshBoards();
     refreshGenerations();
     setSelectedCardId(
@@ -652,6 +815,12 @@ function BoardEditor() {
     saveBoard(board);
     refreshBoards();
   }, [board]);
+
+  useEffect(() => {
+    if (script) {
+      saveScript(script);
+    }
+  }, [script]);
 
   if (!boardId || !board) {
     return (
@@ -736,6 +905,12 @@ function BoardEditor() {
           className="board-editor__download-link"
           hidden
           ref={exportLinkRef}
+        />
+        <a
+          aria-hidden="true"
+          className="board-editor__download-link"
+          hidden
+          ref={exportScriptLinkRef}
         />
         <BoardCanvas
           cards={board.cards}
@@ -828,6 +1003,18 @@ function BoardEditor() {
               onGroupChange={refreshImageGroups}
               referenceImages={referenceImages}
               refreshKey={groupRefreshKey}
+            />
+            <ScriptPanel
+              boardId={board.id}
+              script={script}
+              groups={imageGroups}
+              defaultDuration={duration}
+              shotGenerationStatus={shotGenerationStatus}
+              isBulkGenerating={isBulkGenerating}
+              onScriptChange={setScript}
+              onGenerateShot={(shot) => void handleGenerateShot(shot)}
+              onGenerateAll={() => void handleGenerateAllShots()}
+              onExportScript={handleExportScript}
             />
             <HistoryTray
               records={records}
