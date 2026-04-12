@@ -26,11 +26,12 @@
 - Balance visibility: Sidebar polls the active provider's balance endpoint on board load. Atlas Cloud implementation degrades gracefully when the endpoint is unavailable. Low-balance warning surfaced in Sidebar and PromptBlock.
 - Shot script assistant: per-board structured script with ordered shots (act/scene/prompt/group/duration/notes). Per-shot and bulk sequential generation. Script export as JSON.
 - Backend proxy: API key moved server-side. Frontend calls `/api/atlas/*` on the local proxy (Express). Vite dev server proxies `/api` to `:3001`. Production: Express serves static build + Atlas proxy routes. `VITE_ATLASCLOUD_API_KEY` removed from browser env.
+- Phase E.2 true multi-reference provider path: board-level group video generation prefers confirmed Atlas `bytedance/seedance-2.0/reference-to-video` with ordered `reference_images` when every group image is a remote URL. If the contract path errors, the app falls back to the existing first-image Atlas bridge.
 
 ## PLANNED / BLOCKED
 
 - Live smoke validation against Atlas Cloud still requires a real `ATLASCLOUD_API_KEY` on the proxy server.
 - Atlas-hosted reference uploads remain blocked on a true file upload path or a verified remote-URL upload flow; the MVP currently stores references as local data URLs instead.
-- Group-assisted multi-reference generation is limited by Atlas Cloud: image generation only receives appended reference names in prompt text, and video generation can only use the first group image as `image_url`.
-- True multi-image conditioning: BLOCKED — confirmed not available in the current Atlas Cloud contract. Current implementation uses prompt augmentation for image gen and first-member URL for video gen.
+- Group-assisted image generation remains limited by Atlas Cloud: `google/nano-banana/text-to-image` still has no confirmed reference-image field, so the app only appends reference names into the prompt text.
+- Group-assisted video generation still falls back to the first ordered image when any group member is a local data URL, because Atlas multi-ref video requires remote URLs.
 - No multi-user sync, authentication, or server-side persistence is included in this MVP.

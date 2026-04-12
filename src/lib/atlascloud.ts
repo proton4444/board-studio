@@ -1,6 +1,7 @@
 export const DEFAULT_ATLASCLOUD_BASE_URL = "https://api.atlascloud.ai/api/v1";
 export const ATLASCLOUD_IMAGE_MODEL = "google/nano-banana/text-to-image";
 export const ATLASCLOUD_VIDEO_MODEL = "bytedance/seedance-2.0-fast/image-to-video";
+export const ATLASCLOUD_REF_VIDEO_MODEL = "bytedance/seedance-2.0/reference-to-video";
 
 type AtlasCloudStatus = "pending" | "processing" | "succeeded" | "failed";
 
@@ -17,6 +18,13 @@ export interface ImageGenRequest {
 export interface VideoGenRequest {
   model: typeof ATLASCLOUD_VIDEO_MODEL;
   image_url: string;
+  prompt?: string;
+  duration?: number;
+}
+
+export interface RefVideoGenRequest {
+  model: typeof ATLASCLOUD_REF_VIDEO_MODEL;
+  reference_images: string[];
   prompt?: string;
   duration?: number;
 }
@@ -236,6 +244,15 @@ export async function generateImage(req: ImageGenRequest): Promise<PredictionRes
 }
 
 export async function generateVideo(req: VideoGenRequest): Promise<PredictionResult> {
+  return normalizeResponse(
+    await atlasFetch("/model/generateVideo", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
+  );
+}
+
+export async function generateRefVideo(req: RefVideoGenRequest): Promise<PredictionResult> {
   return normalizeResponse(
     await atlasFetch("/model/generateVideo", {
       method: "POST",

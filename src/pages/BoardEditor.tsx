@@ -13,6 +13,7 @@ import Sidebar from "../components/Sidebar";
 import {
   buildImageGenParams,
   ATLASCLOUD_IMAGE_MODEL,
+  ATLASCLOUD_REF_VIDEO_MODEL,
   ATLASCLOUD_VIDEO_MODEL,
   pollGenerationStatus,
   requestGeneration,
@@ -25,6 +26,7 @@ import {
   getOrderedGroupReferenceImages,
   getOrderedGroupReferenceNames,
   isDataUrl,
+  isMultiRefVideoCapable,
   selectVideoReferenceImageUrl,
 } from "../lib/multiref";
 import {
@@ -63,6 +65,8 @@ type CardGenerationState = {
   status: GenerationStatus;
   errorMessage?: string;
 };
+
+type ReferenceImageLookup = Record<string, ReferenceImage | undefined>;
 
 const ATLAS_PROVIDER = "atlas-cloud";
 
@@ -392,30 +396,23 @@ function BoardEditor() {
         : null;
     const referenceImagesById = Object.fromEntries(
       referenceImages.map((image) => [image.id, image]),
-    ) as Record<string, ReferenceImage | undefined>;
+    ) as ReferenceImageLookup;
     const referenceImageUrl = selectedGroup
       ? selectVideoReferenceImageUrl(selectedGroup, referenceImagesById)
       : undefined;
-    const canGenerateVideo = Boolean(
-      selectedGroup &&
-        referenceImageUrl &&
-        !isDataUrl(referenceImageUrl),
-    );
+    const canGenerateVideo = Boolean(selectedGroup && referenceImageUrl && !isDataUrl(referenceImageUrl));
 
     setShotGenerationStatus((current) => ({ ...current, [shot.id]: "running" }));
 
     try {
-      const initialRecord = canGenerateVideo
-        ? await requestGeneration({
-            type: "video",
+      const finalRecord = canGenerateVideo
+        ? await requestVideoFromGroup({
             boardId: board.id,
             cardId: promptCard.id,
             prompt: shot.prompt,
-            model: ATLASCLOUD_VIDEO_MODEL,
-            imageUrl: referenceImageUrl!,
-            duration: shot.duration ?? duration,
-            referenceGroupId: selectedGroup?.id,
-            referenceImageIds: selectedGroup?.referenceImageIds,
+            selectedGroup: selectedGroup!,
+            referenceImagesById,
+            durationValue: shot.duration ?? duration,
           })
         : await requestGeneration({
             type: "image",
@@ -428,9 +425,11 @@ function BoardEditor() {
             aspect_ratio: aspectRatio,
             num_outputs: 1,
           });
-      const finalRecord = await resolveGenerationLifecycle(initialRecord);
+      const resolvedRecord = canGenerateVideo
+        ? finalRecord
+        : await resolveGenerationLifecycle(finalRecord);
 
-      if (finalRecord.status === "succeeded") {
+      if (resolvedRecord.status === "succeeded") {
         setScript((current) =>
           current
             ? {
@@ -439,7 +438,7 @@ function BoardEditor() {
                   currentShot.id === shot.id
                     ? {
                         ...currentShot,
-                        outputGenerationId: finalRecord.id,
+                        outputGenerationId: resolvedRecord.id,
                         updatedAt: nowIso(),
                       }
                     : currentShot,
@@ -449,7 +448,7 @@ function BoardEditor() {
             : current,
         );
         setShotGenerationStatus((current) => ({ ...current, [shot.id]: "done" }));
-        return finalRecord.id;
+        return resolvedRecord.id;
       }
 
       setShotGenerationStatus((current) => ({ ...current, [shot.id]: "failed" }));
@@ -597,37 +596,20 @@ function BoardEditor() {
 
     const referenceImagesById = Object.fromEntries(
       referenceImages.map((image) => [image.id, image]),
-    ) as Record<string, ReferenceImage | undefined>;
-    const imageUrl = selectVideoReferenceImageUrl(selectedGroup, referenceImagesById);
-
-    if (!imageUrl) {
-      setErrorMessage("The selected reference group no longer has a usable first image. Rebuild the group and try again.");
-      return;
-    }
-
-    if (isDataUrl(imageUrl)) {
-      setErrorMessage(
-        "Atlas Cloud video generation requires a remote hosted image URL, not a local data URL. Use an Atlas Cloud-generated image instead.",
-      );
-      return;
-    }
+    ) as ReferenceImageLookup;
 
     setBusyAction("video");
     setErrorMessage(null);
 
     try {
-      const initialRecord = await requestGeneration({
-        type: "video",
-        prompt: promptCard.content.trim(),
-        model: ATLASCLOUD_VIDEO_MODEL,
+      const finalRecord = await requestVideoFromGroup({
         boardId: board.id,
         cardId: promptCard.id,
-        imageUrl,
-        duration,
-        referenceGroupId: selectedGroup.id,
-        referenceImageIds: selectedGroup.referenceImageIds,
+        prompt: promptCard.content.trim(),
+        selectedGroup,
+        referenceImagesById,
+        durationValue: duration,
       });
-      const finalRecord = await resolveGenerationLifecycle(initialRecord);
 
       if (finalRecord.status === "succeeded") {
         applyGenerationToBoard(finalRecord);
@@ -640,6 +622,82 @@ function BoardEditor() {
     } finally {
       setBusyAction(null);
     }
+  }
+
+  async function requestVideoFromGroup({
+    boardId: activeBoardId,
+    cardId,
+    prompt,
+    selectedGroup,
+    referenceImagesById,
+    durationValue,
+  }: {
+    boardId: string;
+    cardId: string;
+    prompt: string;
+    selectedGroup: ImageGroup;
+    referenceImagesById: ReferenceImageLookup;
+    durationValue: number;
+  }): Promise<GenerationRecord> {
+    const orderedImages = getOrderedGroupReferenceImages(selectedGroup, referenceImagesById);
+    const imageUrl = orderedImages[0]?.url;
+
+    if (!imageUrl) {
+      throw new Error(
+        "The selected reference group no longer has a usable first image. Rebuild the group and try again.",
+      );
+    }
+
+    const buildBridgeRequest = () =>
+      requestGeneration({
+        type: "video",
+        prompt,
+        model: ATLASCLOUD_VIDEO_MODEL,
+        boardId: activeBoardId,
+        cardId,
+        imageUrl,
+        duration: durationValue,
+        referenceGroupId: selectedGroup.id,
+        referenceImageIds: selectedGroup.referenceImageIds,
+      });
+    const runBridgeGeneration = async () => {
+      if (isDataUrl(imageUrl)) {
+        throw new Error(
+          "Atlas Cloud group video generation fell back to the single-image bridge because this group includes local data URLs, but the first reference is itself a data URL. Use Atlas Cloud-hosted image URLs instead.",
+        );
+      }
+
+      return resolveGenerationLifecycle(await buildBridgeRequest());
+    };
+
+    const canUseMultiRefVideo = isMultiRefVideoCapable(selectedGroup, referenceImagesById);
+
+    if (!canUseMultiRefVideo) {
+      return runBridgeGeneration();
+    }
+
+    try {
+      const multiRefRecord = await requestGeneration({
+        type: "video",
+        prompt,
+        model: ATLASCLOUD_REF_VIDEO_MODEL,
+        boardId: activeBoardId,
+        cardId,
+        referenceImageUrls: orderedImages.map((image) => image.url),
+        duration: durationValue,
+        referenceGroupId: selectedGroup.id,
+        referenceImageIds: selectedGroup.referenceImageIds,
+      });
+      const finalRecord = await resolveGenerationLifecycle(multiRefRecord);
+
+      if (finalRecord.status === "succeeded") {
+        return finalRecord;
+      }
+    } catch {
+      return runBridgeGeneration();
+    }
+
+    return runBridgeGeneration();
   }
 
   async function handleMakeVideo(sourceRecord: GenerationRecord, imageUrl: string) {

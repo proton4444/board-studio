@@ -1,5 +1,6 @@
 import {
   ATLASCLOUD_IMAGE_MODEL,
+  ATLASCLOUD_REF_VIDEO_MODEL,
   ATLASCLOUD_VIDEO_MODEL,
   type PredictionResult,
 } from "./atlascloud";
@@ -34,13 +35,14 @@ type ImageGenerationParams = BaseGenerationParams & {
 type VideoGenerationParams = BaseGenerationParams & {
   type: "video";
   prompt: string;
-  imageUrl: string;
+  imageUrl?: string;
+  referenceImageUrls?: string[];
   duration?: number;
 };
 
 export type GenerationRequestParams = ImageGenerationParams | VideoGenerationParams;
 
-export { ATLASCLOUD_IMAGE_MODEL, ATLASCLOUD_VIDEO_MODEL } from "./atlascloud";
+export { ATLASCLOUD_IMAGE_MODEL, ATLASCLOUD_REF_VIDEO_MODEL, ATLASCLOUD_VIDEO_MODEL } from "./atlascloud";
 
 type BuildImageGenOptions = Omit<
   ImageGenerationParams,
@@ -65,7 +67,9 @@ type GenerationRecordContext = {
 };
 
 function toMediaType(model: string): MediaItem["type"] {
-  return model === ATLASCLOUD_VIDEO_MODEL ? "video" : "image";
+  return model === ATLASCLOUD_VIDEO_MODEL || model === ATLASCLOUD_REF_VIDEO_MODEL
+    ? "video"
+    : "image";
 }
 
 function toGenerationStatus(status: PredictionResult["status"]): GenerationStatus {
@@ -207,6 +211,7 @@ export async function requestGeneration(
   const prediction = await provider.generateVideo({
     model: params.model,
     image_url: params.imageUrl,
+    reference_images: params.referenceImageUrls,
     prompt: params.prompt,
     duration: params.duration,
   });

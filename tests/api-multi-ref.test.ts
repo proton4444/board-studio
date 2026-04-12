@@ -1,6 +1,7 @@
 import {
   appendReferenceNamesToPrompt,
   getOrderedGroupReferenceNames,
+  isMultiRefVideoCapable,
   selectVideoReferenceImageUrl,
 } from "../src/lib/multiref";
 import type { ImageGroup, ReferenceImage } from "../src/schemas/media";
@@ -65,4 +66,35 @@ test("selectVideoReferenceImageUrl returns the first ordered group member URL", 
   expect(selectVideoReferenceImageUrl(imageGroupFixture, referenceImagesById)).toBe(
     "https://example.com/reference-b.png",
   );
+});
+
+test("isMultiRefVideoCapable returns true when every ordered reference is remote", () => {
+  expect(isMultiRefVideoCapable(imageGroupFixture, referenceImagesById)).toBe(true);
+});
+
+test("isMultiRefVideoCapable returns false when any ordered reference is a data URL", () => {
+  expect(
+    isMultiRefVideoCapable(
+      imageGroupFixture,
+      {
+        ...referenceImagesById,
+        reference_a: {
+          ...referenceImagesById.reference_a,
+          url: "data:image/png;base64,abc123",
+        },
+      },
+    ),
+  ).toBe(false);
+});
+
+test("isMultiRefVideoCapable returns false for an empty group", () => {
+  expect(
+    isMultiRefVideoCapable(
+      {
+        ...imageGroupFixture,
+        referenceImageIds: [],
+      },
+      referenceImagesById,
+    ),
+  ).toBe(false);
 });

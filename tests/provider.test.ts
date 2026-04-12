@@ -2,6 +2,7 @@ import "../src/lib/providers/atlasCloudProvider";
 
 import {
   ATLASCLOUD_IMAGE_MODEL,
+  ATLASCLOUD_REF_VIDEO_MODEL,
   ATLASCLOUD_VIDEO_MODEL,
 } from "../src/lib/atlascloud";
 import {
@@ -56,11 +57,20 @@ test("video model profile exposes duration control and single-image reference", 
   expect(profile?.capabilities.singleImageReference).toBe(true);
 });
 
+test("reference video model profile exposes multi-ref video support", () => {
+  const profile = getModelProfile(ATLASCLOUD_REF_VIDEO_MODEL);
+
+  expect(profile?.generationType).toBe("video");
+  expect(profile?.capabilities.trueMultiImageInput).toBe(true);
+  expect(profile?.capabilities.multiRefVideo).toBe(true);
+  expect(profile?.capabilities.singleImageReference).toBe(false);
+});
+
 test("listProviders contains exactly one registered provider", () => {
   expect(listProviders()).toHaveLength(1);
   expect(listProviders()[0]?.id).toBe("atlas-cloud");
 });
 
-test("listModelProfiles contains exactly two registered profiles", () => {
-  expect(listModelProfiles()).toHaveLength(2);
+test("listModelProfiles contains exactly three registered profiles", () => {
+  expect(listModelProfiles()).toHaveLength(3);
 });

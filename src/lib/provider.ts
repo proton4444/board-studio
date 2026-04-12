@@ -12,7 +12,8 @@ export type ProviderImageParams = {
 
 export type ProviderVideoParams = {
   model: string;
-  image_url: string;
+  image_url?: string;
+  reference_images?: string[];
   prompt?: string;
   duration?: number;
 };
@@ -36,6 +37,7 @@ export type ProviderCapabilities = {
   videoGeneration: boolean;
   uploadMedia: boolean;
   trueMultiImageConditioning: boolean;
+  multiRefVideo: boolean;
   referenceAssistedGeneration: boolean;
   aspectRatioControl: boolean;
   numOutputsControl: boolean;
@@ -52,6 +54,7 @@ export type ModelCapabilityProfile = {
     numOutputs: boolean;
     durationControl: boolean;
     trueMultiImageInput: boolean;
+    multiRefVideo: boolean;
     singleImageReference: boolean;
     promptAugmentation: boolean;
   };

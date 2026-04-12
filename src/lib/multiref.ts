@@ -43,3 +43,16 @@ export function isDataUrl(value: string): boolean {
     return false;
   }
 }
+
+export function isMultiRefVideoCapable(
+  group: Pick<ImageGroup, "referenceImageIds">,
+  referenceImagesById: ReferenceImageLookup,
+): boolean {
+  const orderedImages = getOrderedGroupReferenceImages(group, referenceImagesById);
+
+  return (
+    orderedImages.length > 0 &&
+    orderedImages.length === group.referenceImageIds.length &&
+    orderedImages.every((image) => !isDataUrl(image.url))
+  );
+}

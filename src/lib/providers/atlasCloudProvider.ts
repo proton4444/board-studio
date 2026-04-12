@@ -1,7 +1,9 @@
 import {
   ATLASCLOUD_IMAGE_MODEL,
+  ATLASCLOUD_REF_VIDEO_MODEL,
   ATLASCLOUD_VIDEO_MODEL,
   generateImage,
+  generateRefVideo,
   generateVideo,
   pollPrediction,
   uploadMedia,
@@ -28,6 +30,7 @@ const atlasCapabilities: ProviderCapabilities = {
   videoGeneration: true,
   uploadMedia: true,
   trueMultiImageConditioning: false,
+  multiRefVideo: false,
   referenceAssistedGeneration: true,
   aspectRatioControl: true,
   numOutputsControl: true,
@@ -89,6 +92,7 @@ const atlasImageModelProfile: ModelCapabilityProfile = {
     numOutputs: true,
     durationControl: false,
     trueMultiImageInput: false,
+    multiRefVideo: false,
     singleImageReference: false,
     promptAugmentation: true,
   },
@@ -103,7 +107,23 @@ const atlasVideoModelProfile: ModelCapabilityProfile = {
     numOutputs: false,
     durationControl: true,
     trueMultiImageInput: false,
+    multiRefVideo: false,
     singleImageReference: true,
+    promptAugmentation: false,
+  },
+};
+
+const atlasRefVideoModelProfile: ModelCapabilityProfile = {
+  modelId: ATLASCLOUD_REF_VIDEO_MODEL,
+  providerId: ATLAS_CLOUD_PROVIDER_ID,
+  generationType: "video",
+  capabilities: {
+    aspectRatio: false,
+    numOutputs: false,
+    durationControl: true,
+    trueMultiImageInput: true,
+    multiRefVideo: true,
+    singleImageReference: false,
     promptAugmentation: false,
   },
 };
@@ -126,6 +146,25 @@ export const atlasCloudProvider: GenerationProvider = {
     );
   },
   async generateVideo(params: ProviderVideoParams): Promise<ProviderPollResult> {
+    if (
+      params.model === ATLASCLOUD_REF_VIDEO_MODEL &&
+      params.reference_images &&
+      params.reference_images.length > 0
+    ) {
+      return toProviderPollResult(
+        await generateRefVideo({
+          model: ATLASCLOUD_REF_VIDEO_MODEL,
+          reference_images: params.reference_images,
+          prompt: params.prompt,
+          duration: params.duration,
+        }),
+      );
+    }
+
+    if (!params.image_url) {
+      throw new Error("Atlas Cloud image-to-video requires image_url.");
+    }
+
     return toProviderPollResult(
       await generateVideo({
         model: params.model as typeof ATLASCLOUD_VIDEO_MODEL,
@@ -167,5 +206,6 @@ export const atlasCloudProvider: GenerationProvider = {
 registerProvider(atlasCloudProvider);
 registerModelProfile(atlasImageModelProfile);
 registerModelProfile(atlasVideoModelProfile);
+registerModelProfile(atlasRefVideoModelProfile);
 
 export default atlasCloudProvider;
