@@ -14,6 +14,7 @@ type BoardCardProps = {
   onSelect: (cardId: string) => void;
   onMove: (cardId: string, position: Card["position"]) => void;
   onChangeContent: (cardId: string, content: string) => void;
+  onDelete?: (cardId: string) => void;
 };
 
 type DragState = {
@@ -37,6 +38,7 @@ function BoardCard({
   onSelect,
   onMove,
   onChangeContent,
+  onDelete,
 }: BoardCardProps) {
   const [dragState, setDragState] = useState<DragState>(null);
 
@@ -93,13 +95,27 @@ function BoardCard({
     >
       <header className="board-card__header">
         <span className="board-card__eyebrow">{labelMap[card.type]}</span>
-        <div className="board-card__status">
-          {generationState ? (
-            <span className={`status-pill status-pill--${generationState.status}`}>
-              {generationState.status}
-            </span>
+        <div className="board-card__actions">
+          <div className="board-card__status">
+            {generationState ? (
+              <span className={`status-pill status-pill--${generationState.status}`}>
+                {generationState.status}
+              </span>
+            ) : null}
+            <span className="board-card__meta">{card.size.w} x {card.size.h}</span>
+          </div>
+          {selected && onDelete ? (
+            <button
+              className="board-card__delete"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete(card.id);
+              }}
+              type="button"
+            >
+              ×
+            </button>
           ) : null}
-          <span className="board-card__meta">{card.size.w} x {card.size.h}</span>
         </div>
       </header>
       {card.type === "output" ? (

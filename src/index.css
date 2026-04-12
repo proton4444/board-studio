@@ -137,6 +137,16 @@ a {
   box-shadow: var(--shadow);
 }
 
+.dashboard__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.dashboard__import-input {
+  display: none;
+}
+
 .dashboard__hero h1,
 .board-editor__missing h1 {
   font-size: clamp(2rem, 4vw, 3.5rem);
@@ -419,10 +429,36 @@ a {
   gap: 0.75rem;
 }
 
+.board-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
 .board-card__status {
   display: flex;
   align-items: center;
   gap: 0.55rem;
+}
+
+.board-card__delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(247, 238, 219, 0.06);
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.board-card__delete:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
 }
 
 .board-card__eyebrow,
@@ -650,6 +686,25 @@ a {
   font-size: 0.84rem;
 }
 
+.prompt-block__parameters {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.85rem 0.95rem;
+}
+
+.prompt-block__parameters summary {
+  cursor: pointer;
+  color: var(--accent-soft);
+  font-weight: 600;
+}
+
+.prompt-block__parameter-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
 .prompt-block__group-preview,
 .prompt-block__actions {
   display: grid;
@@ -864,6 +919,11 @@ a {
   .dashboard__hero {
     padding: 1.25rem;
     align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard__actions {
+    width: 100%;
     flex-direction: column;
   }
 

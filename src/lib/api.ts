@@ -8,6 +8,7 @@ import {
 } from "./atlascloud";
 import { loadGeneration } from "./storage";
 import { createId, nowIso } from "./utils";
+import type { Card } from "../schemas/board";
 import type { GenerationRecord, GenerationStatus, MediaItem } from "../schemas/media";
 
 const ATLAS_PROVIDER = "atlas-cloud";
@@ -36,6 +37,13 @@ type VideoGenerationParams = BaseGenerationParams & {
 };
 
 export type GenerationRequestParams = ImageGenerationParams | VideoGenerationParams;
+
+type BuildImageGenOptions = Omit<
+  ImageGenerationParams,
+  "type" | "cardId" | "prompt"
+> & {
+  prompt?: string;
+};
 
 type GenerationRecordContext = {
   boardId: string;
@@ -114,6 +122,24 @@ function getStoredContext(record: GenerationRecord): GenerationRecordContext {
         ? record.output[0].type
         : toMediaType(record.model),
     createdAt: record.createdAt,
+  };
+}
+
+export function buildImageGenParams(
+  promptCard: Pick<Card, "id" | "content">,
+  options: BuildImageGenOptions,
+): ImageGenerationParams {
+  return {
+    type: "image",
+    boardId: options.boardId,
+    cardId: promptCard.id,
+    prompt: options.prompt ?? promptCard.content.trim(),
+    model: options.model,
+    provider: options.provider,
+    referenceGroupId: options.referenceGroupId,
+    referenceImageIds: options.referenceImageIds,
+    aspect_ratio: options.aspect_ratio,
+    num_outputs: options.num_outputs,
   };
 }
 

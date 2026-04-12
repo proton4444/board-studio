@@ -12,6 +12,7 @@ type SidebarProps = {
   onBoardDescriptionChange: (value: string) => void;
   onSelectCard: (cardId: string) => void;
   onAddCard: (type: CardType) => void;
+  onExportBoard?: () => void;
 };
 
 function Sidebar({
@@ -25,6 +26,7 @@ function Sidebar({
   onBoardDescriptionChange,
   onSelectCard,
   onAddCard,
+  onExportBoard,
 }: SidebarProps) {
   return (
     <aside className="sidebar">
@@ -49,6 +51,11 @@ function Sidebar({
             onChange={(event) => onBoardDescriptionChange(event.target.value)}
           />
         </label>
+        {onExportBoard ? (
+          <button className="button button--ghost" onClick={onExportBoard} type="button">
+            Export board
+          </button>
+        ) : null}
       </section>
 
       <section className="panel">

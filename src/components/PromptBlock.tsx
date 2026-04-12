@@ -18,6 +18,13 @@ type PromptBlockProps = {
   selectedGroupId: string;
   onSelectGroup: (groupId: string) => void;
   selectedGroupPreview: Array<Pick<ReferenceImage, "id" | "name" | "url">>;
+  aspectRatio: string;
+  onAspectRatioChange: (value: string) => void;
+  numOutputs: number;
+  onNumOutputsChange: (value: number) => void;
+  duration: number;
+  onDurationChange: (value: number) => void;
+  showVideoParameters?: boolean;
 };
 
 function PromptBlock({
@@ -37,6 +44,13 @@ function PromptBlock({
   selectedGroupId,
   onSelectGroup,
   selectedGroupPreview,
+  aspectRatio,
+  onAspectRatioChange,
+  numOutputs,
+  onNumOutputsChange,
+  duration,
+  onDurationChange,
+  showVideoParameters,
 }: PromptBlockProps) {
   const canSubmit =
     hasPromptCard &&
@@ -51,6 +65,7 @@ function PromptBlock({
     status !== "pending" &&
     status !== "processing" &&
     !isSubmittingVideo;
+  const shouldShowVideoParameters = showVideoParameters || selectedGroupId.length > 0;
 
   return (
     <section className="panel prompt-block">
@@ -102,6 +117,50 @@ function PromptBlock({
               ))}
             </select>
           </label>
+          <details className="prompt-block__parameters">
+            <summary>Generation parameters</summary>
+            <div className="prompt-block__parameter-grid">
+              <label className="field">
+                <span>Aspect ratio</span>
+                <select
+                  onChange={(event) => onAspectRatioChange(event.target.value)}
+                  value={aspectRatio}
+                >
+                  <option value="1:1">1:1</option>
+                  <option value="4:3">4:3</option>
+                  <option value="16:9">16:9</option>
+                  <option value="9:16">9:16</option>
+                  <option value="3:4">3:4</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Number of outputs</span>
+                <select
+                  onChange={(event) => onNumOutputsChange(Number(event.target.value))}
+                  value={String(numOutputs)}
+                >
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                </select>
+              </label>
+              {shouldShowVideoParameters ? (
+                <label className="field">
+                  <span>Video duration (seconds)</span>
+                  <select
+                    onChange={(event) => onDurationChange(Number(event.target.value))}
+                    value={String(duration)}
+                  >
+                    <option value="3">3</option>
+                    <option value="5">5</option>
+                    <option value="7">7</option>
+                    <option value="10">10</option>
+                  </select>
+                </label>
+              ) : null}
+            </div>
+          </details>
           <p className="prompt-block__hint">
             Tip: reference group names will be included in your prompt to help guide the image model.
           </p>

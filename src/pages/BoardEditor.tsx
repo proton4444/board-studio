@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import BoardCanvas from "../components/BoardCanvas";
 import HistoryTray from "../components/HistoryTray";
@@ -8,7 +8,12 @@ import PromptBlock from "../components/PromptBlock";
 import ReferenceGalleryPanel from "../components/ReferenceGalleryPanel";
 import ReferenceUploadPanel from "../components/ReferenceUploadPanel";
 import Sidebar from "../components/Sidebar";
-import { mergePredictionIntoGenerationRecord, pollGenerationStatus, requestGeneration } from "../lib/api";
+import {
+  buildImageGenParams,
+  mergePredictionIntoGenerationRecord,
+  pollGenerationStatus,
+  requestGeneration,
+} from "../lib/api";
 import {
   ATLASCLOUD_IMAGE_MODEL,
   ATLASCLOUD_VIDEO_MODEL,
@@ -23,6 +28,7 @@ import {
   selectVideoReferenceImageUrl,
 } from "../lib/multiref";
 import {
+  exportGenerationsByBoard,
   listBoards,
   listGenerationsByBoard,
   loadBoard,
@@ -152,6 +158,10 @@ function BoardEditor() {
   const [lastSelectedImageUrl, setLastSelectedImageUrl] = useState<string | null>(null);
   const [referenceGalleryRefreshKey, setReferenceGalleryRefreshKey] = useState(0);
   const [groupRefreshKey, setGroupRefreshKey] = useState(0);
+  const [aspectRatio, setAspectRatio] = useState("1:1");
+  const [numOutputs, setNumOutputs] = useState(1);
+  const [duration, setDuration] = useState(5);
+  const exportLinkRef = useRef<HTMLAnchorElement | null>(null);
 
   function refreshBoards() {
     setBoards(listBoards().map(({ id, name }) => ({ id, name })));
@@ -355,15 +365,17 @@ function BoardEditor() {
     setErrorMessage(null);
 
     try {
-      const initialRecord = await requestGeneration({
-        type: "image",
-        prompt: submissionPrompt,
-        model: ATLASCLOUD_IMAGE_MODEL,
-        boardId: board.id,
-        cardId: promptCard.id,
-        referenceGroupId: selectedGroup?.id,
-        referenceImageIds: selectedGroup?.referenceImageIds,
-      });
+      const initialRecord = await requestGeneration(
+        buildImageGenParams(promptCard, {
+          boardId: board.id,
+          prompt: submissionPrompt,
+          model: ATLASCLOUD_IMAGE_MODEL,
+          referenceGroupId: selectedGroup?.id,
+          referenceImageIds: selectedGroup?.referenceImageIds,
+          aspect_ratio: aspectRatio,
+          num_outputs: numOutputs,
+        }),
+      );
       const finalRecord = await resolveGenerationLifecycle(initialRecord);
 
       if (finalRecord.status === "succeeded") {
@@ -434,7 +446,7 @@ function BoardEditor() {
         boardId: board.id,
         cardId: promptCard.id,
         imageUrl,
-        duration: 5,
+        duration,
         referenceGroupId: selectedGroup.id,
         referenceImageIds: selectedGroup.referenceImageIds,
       });
@@ -468,7 +480,7 @@ function BoardEditor() {
         model: ATLASCLOUD_VIDEO_MODEL,
         image_url: referenceImageUrl,
         prompt: sourceRecord.prompt,
-        duration: 5,
+        duration,
       });
       const initialRecord = mergePredictionIntoGenerationRecord(
         {
@@ -506,6 +518,60 @@ function BoardEditor() {
     }));
 
     setSelectedCardId(nextCard.id);
+  }
+
+  function handleDeleteCard(cardId: string) {
+    if (activeGeneration?.cardId === cardId) {
+      setErrorMessage("Cannot delete a card while a generation is running.");
+      return;
+    }
+
+    updateBoard((current) => ({
+      ...current,
+      cards: current.cards.filter((card) => card.id !== cardId),
+    }));
+
+    if (selectedCardId === cardId) {
+      setSelectedCardId(null);
+    }
+  }
+
+  function handleExportBoard() {
+    if (!boardId || !board) {
+      return;
+    }
+
+    saveBoard(board);
+
+    const storedBoard = loadBoard(boardId);
+
+    if (!storedBoard) {
+      setErrorMessage("Unable to export this board because it could not be loaded from storage.");
+      return;
+    }
+
+    const generations = JSON.parse(exportGenerationsByBoard(boardId)) as GenerationRecord[];
+    const downloadPayload = JSON.stringify(
+      {
+        board: storedBoard,
+        generations,
+      },
+      null,
+      2,
+    );
+    const filename = `board-${storedBoard.name.replace(/\s+/g, "-").toLowerCase()}-export.json`;
+    const blob = new Blob([downloadPayload], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    if (exportLinkRef.current) {
+      exportLinkRef.current.href = url;
+      exportLinkRef.current.download = filename;
+      exportLinkRef.current.click();
+    }
+
+    globalThis.setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 0);
   }
 
   useEffect(() => {
@@ -622,9 +688,16 @@ function BoardEditor() {
         }
         onSelectCard={setSelectedCardId}
         onAddCard={handleAddCard}
+        onExportBoard={handleExportBoard}
       />
 
       <div className="board-editor__main">
+        <a
+          aria-hidden="true"
+          className="board-editor__download-link"
+          hidden
+          ref={exportLinkRef}
+        />
         <BoardCanvas
           cards={board.cards}
           selectedCardId={selectedCardId}
@@ -646,6 +719,7 @@ function BoardEditor() {
               ),
             }))
           }
+          onDeleteCard={handleDeleteCard}
         />
 
         <div className="board-editor__panels">
@@ -679,6 +753,13 @@ function BoardEditor() {
             selectedGroupId={selectedReferenceGroupId}
             onSelectGroup={setSelectedReferenceGroupId}
             selectedGroupPreview={selectedGroupPreviewImages}
+            aspectRatio={aspectRatio}
+            onAspectRatioChange={setAspectRatio}
+            numOutputs={numOutputs}
+            onNumOutputsChange={setNumOutputs}
+            duration={duration}
+            onDurationChange={setDuration}
+            showVideoParameters={Boolean(selectedReferenceGroupId)}
           />
           <MediaOutputPanel
             record={displayedGeneration}

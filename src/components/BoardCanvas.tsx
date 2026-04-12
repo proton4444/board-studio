@@ -14,6 +14,7 @@ type BoardCanvasProps = {
   onSelectCard: (cardId: string) => void;
   onMoveCard: (cardId: string, position: Card["position"]) => void;
   onChangeCardContent: (cardId: string, content: string) => void;
+  onDeleteCard?: (cardId: string) => void;
 };
 
 function BoardCanvas({
@@ -23,6 +24,7 @@ function BoardCanvas({
   onSelectCard,
   onMoveCard,
   onChangeCardContent,
+  onDeleteCard,
 }: BoardCanvasProps) {
   return (
     <section className="board-canvas">
@@ -41,6 +43,7 @@ function BoardCanvas({
             onSelect={onSelectCard}
             onMove={onMoveCard}
             onChangeContent={onChangeCardContent}
+            onDelete={onDeleteCard}
           />
         ))}
       </div>

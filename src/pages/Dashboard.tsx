@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteBoard, listBoards, saveBoard } from "../lib/storage";
+import { deleteBoard, listBoards, saveBoard, saveGeneration } from "../lib/storage";
 import { createId, formatShortDate, nowIso } from "../lib/utils";
-import type { Board, Card } from "../schemas/board";
+import { boardSchema, type Board, type Card } from "../schemas/board";
+import { generationRecordSchema } from "../schemas/media";
 
 function createStarterCard(): Card {
   return {
@@ -31,6 +32,8 @@ function createBoardFixture(index: number): Board {
 function Dashboard() {
   const navigate = useNavigate();
   const [boards, setBoards] = useState<Board[]>(() => listBoards());
+  const [importErrorMessage, setImportErrorMessage] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   function refreshBoards() {
     setBoards(listBoards());
@@ -48,6 +51,44 @@ function Dashboard() {
     refreshBoards();
   }
 
+  async function handleImportBoard(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(await file.text()) as {
+        board?: unknown;
+        generations?: unknown;
+      };
+      const validatedBoard = boardSchema.parse(parsed.board);
+
+      saveBoard(validatedBoard);
+
+      if (Array.isArray(parsed.generations)) {
+        parsed.generations.forEach((record) => {
+          const result = generationRecordSchema.safeParse(record);
+
+          if (result.success) {
+            saveGeneration(result.data);
+          }
+        });
+      }
+
+      setImportErrorMessage(null);
+      refreshBoards();
+      navigate(`/boards/${validatedBoard.id}`);
+    } catch (error) {
+      setImportErrorMessage(
+        error instanceof Error ? error.message : "Board import failed.",
+      );
+    }
+  }
+
   return (
     <section className="dashboard">
       <div className="dashboard__hero">
@@ -59,10 +100,27 @@ function Dashboard() {
             JSON export and import available in the storage layer.
           </p>
         </div>
-        <button className="button" onClick={handleCreateBoard} type="button">
-          New Board
-        </button>
+        <div className="dashboard__actions">
+          <button
+            className="button button--ghost"
+            onClick={() => importInputRef.current?.click()}
+            type="button"
+          >
+            Import board
+          </button>
+          <button className="button" onClick={handleCreateBoard} type="button">
+            New Board
+          </button>
+        </div>
       </div>
+      <input
+        accept=".json,application/json"
+        className="dashboard__import-input"
+        onChange={(event) => void handleImportBoard(event)}
+        ref={importInputRef}
+        type="file"
+      />
+      {importErrorMessage ? <p className="panel__error">{importErrorMessage}</p> : null}
 
       {boards.length === 0 ? (
         <div className="dashboard__empty panel">
