@@ -1,0 +1,40 @@
+# STATUS
+
+## VALIDATED
+
+- Atlas Cloud image generation is wired to `google/nano-banana/text-to-image`.
+- Atlas Cloud video generation is wired to `bytedance/seedance-2.0-fast/image-to-video`.
+- Atlas Cloud responses are normalized across direct and `{ "data": { ... } }` envelope shapes.
+- Local persistence stores image and video generation results per board in local storage.
+- Reference image upload and thumbnail gallery are wired into the board editor with per-board localStorage persistence and remove support.
+- Reference image uploads currently persist browser data URLs locally for the MVP because `uploadMedia` only accepts a URL string and does not expose direct file upload.
+- Image groups can be created, displayed, updated, deleted, and persisted per board in localStorage.
+- Group-assisted reference generation is wired into the board editor: image generation uses prompt augmentation as the production bridge path, and group-based video generation uses the first image as `image_url`.
+- The board editor supports the end-to-end flow: prompt -> image -> video -> history.
+- Generated images and videos render inline in `MediaOutputPanel` and expose direct download links.
+- Phase C.1 history/media/workflow UX polish: history filter, type badges, model humanisation, prompt truncation, group context in output viewer, reuse affordance.
+- History tray status filter (succeeded/failed) and date sort (newest/oldest first).
+- Card deletion is available on selected cards, with an active-generation guard preventing destructive removal mid-run.
+- Board export downloads a single board plus its generation history as JSON.
+- Board import validates JSON with Zod, restores valid generations, and surfaces graceful errors on bad input.
+- Board thumbnail: dashboard cards show the most recent succeeded image output as a thumbnail; falls back to a placeholder.
+- Generation parameters UI supports aspect ratio and output count for images, plus video duration for video paths.
+- Advanced generation parameters: seed (stored in record, displayed in output viewer), guidance scale, and output format exposed in PromptBlock advanced parameters panel. Image-generation path only.
+- Atlas client normalization, error handling, and polling behavior are covered by automated tests.
+- Collage editor modal: compose N reference images into a grid PNG, saved as a new reference image. Trigger in gallery panel.
+- Provider abstraction layer: `GenerationProvider` interface, Atlas Cloud concrete implementation, capability metadata, model profiles. Atlas is the only registered provider.
+- Balance visibility: Sidebar polls the active provider's balance endpoint on board load. Atlas Cloud implementation degrades gracefully when the endpoint is unavailable. Low-balance warning surfaced in Sidebar and PromptBlock.
+- Shot script assistant: per-board structured script with ordered shots (act/scene/prompt/group/duration/notes). Per-shot and bulk sequential generation. Script export as JSON.
+- Backend proxy: API key moved server-side. Frontend calls `/api/atlas/*` on the local proxy (Express). Vite dev server proxies `/api` to `:3001`. Production: Express serves static build + Atlas proxy routes. `VITE_ATLASCLOUD_API_KEY` removed from browser env.
+- Phase E.2 true multi-reference provider path: board-level group video generation prefers confirmed Atlas `bytedance/seedance-2.0/reference-to-video` with ordered `reference_images` when every group image is a remote URL. If the contract path errors, the app falls back to the existing first-image Atlas bridge.
+- Phase E.3 multi-ref eligibility: structured capability state, auto-upload path for data URL members (requires Atlas `uploadMedia`), UI hint shows which path will be used before submission.
+- Phase F.1 production hardening: proxy startup fails fast on missing `ATLASCLOUD_API_KEY` (`process.exit(1)`); consistent error envelopes with no secret leakage; 2 MB request body limit; prediction ID validation against path traversal; 120 s upstream fetch timeout with 504 on abort; `server/env.ts` extracted as a testable pure function; `RUNBOOK.md` rewritten to reflect post-E.1 two-terminal dev workflow, production run, and smoke-test checklist.
+- Phase F.2 deployment: `createApp` factory extracted to `server/app.ts` for testability; server route integration tests (health, prediction ID validation, body size limit) pass without a real Atlas key; Dockerfile added for containerized deployment; `.dockerignore` prevents secrets from entering the image; `npm run preview` convenience script added; `RUNBOOK` updated with Docker deployment steps and pre-deploy checklist.
+
+## PLANNED / BLOCKED
+
+- Live smoke validation against Atlas Cloud still requires a real `ATLASCLOUD_API_KEY` on the proxy server.
+- Atlas-hosted reference uploads remain blocked on a true file upload path or a verified remote-URL upload flow; the MVP currently stores references as local data URLs instead.
+- Group-assisted image generation remains limited by Atlas Cloud: `google/nano-banana/text-to-image` still has no confirmed reference-image field, so the app only appends reference names into the prompt text.
+- Group-assisted video generation still falls back to the first ordered image when any group member is a local data URL, because Atlas multi-ref video requires remote URLs.
+- No multi-user sync, authentication, or server-side persistence is included in this MVP.
